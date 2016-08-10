@@ -1,0 +1,2 @@
+# AhuiDict
+Chinese-Japanese Dictionary
