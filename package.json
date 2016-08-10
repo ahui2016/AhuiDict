@@ -1,0 +1,21 @@
+{
+  "name": "AhuiDict",
+  "version": "0.1.0",
+  "description": "Ahui Dictionary",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "AhuiDict",
+    "Ahui",
+    "Dictionary",
+    "Japanese",
+    "Chinese"
+  ],
+  "author": "ahui2016 <ahui.2015@icloud.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "electron-prebuilt": "^1.3.2"
+  }
+}
