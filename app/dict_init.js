@@ -2,6 +2,14 @@ $('header h1').innerText = `${packageJSON.name}`
 $('header').appendChild($CE('p'))
 $('header p').innerText = `${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.`
 
+const transactionOnabort = (event) => {
+  if (event.target.error === null) {
+    alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
+  } else {
+    alert(event.target.error)
+  }
+}
+
 let request = indexedDB.open('dictDB')
 
 request.onerror = (event) => {
@@ -27,18 +35,11 @@ request.onsuccess = (event) => {
   $('#info').appendChild($P('on success:'))
   $('#info').appendChild($P(`current version: ${db.version}`))
 
-  let transaction = db.transaction('dictStore', 'readonly')
-  
-  transaction.onabort = (event) => {
-    if (event.target.error === null) {
-      alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
-    } else {
-      alert(event.target.error)
-    }
-  }
-  
-  let store = transaction.objectStore('dictStore')
+  let countTransaction = db.transaction('dictStore', 'readwrite')
+  countTransaction.onabort = transactionOnabort
+  let store = countTransaction.objectStore('dictStore')
   let countRequest = store.count()
+
   countRequest.onsuccess = () => {
     let count = countRequest.result
     const dbJSON = require('./database.json')
@@ -46,14 +47,11 @@ request.onsuccess = (event) => {
     $('#info').appendChild($P('Open objectStore ... successful'))
     $('#info').appendChild($P(`How many records in   indexedDB  : ${count}`))
     $('#info').appendChild($P(`How many records in database.json: ${len}`))
-    if (count === len) {
-      $('#info').appendChild($P('Quantity checking ... OK!'))
-    } else {
-      let p = $P('Quantity checking ... NG!')
-      p.style.color = 'red'
-      $('#info').appendChild(p)
-      transaction.abort()
+
+    for (key in dbJSON) {
+      store.put(dbJSON[key], parseInt(key))
     }
+
   }
 
   db.close()
