@@ -1,7 +1,14 @@
 const $ = document.querySelector.bind(document)
 const $A = document.querySelectorAll.bind(document)
 const $CE = document.createElement.bind(document)
+const $log = console.log.bind(console)
 
-const package = require('../package.json')
+function $P (text) {
+  let p = $CE('p')
+  p.innerText = text
+  return p
+}
 
-$('title').innerText = `${package.name} v${package.version}`
+const packageJSON = require('../package.json')
+
+$('title').innerText = `${packageJSON.name} v${packageJSON.version}`
