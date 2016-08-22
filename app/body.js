@@ -39,6 +39,7 @@ request.onsuccess = (event) => {
   
   let store = transaction.objectStore('dictStore')
   let countRequest = store.count()
+
   countRequest.onsuccess = () => {
     let count = countRequest.result
     const dbJSON = require('./database.json')
@@ -48,6 +49,15 @@ request.onsuccess = (event) => {
     $('#info').appendChild($P(`How many records in database.json: ${len}`))
     if (count === len) {
       $('#info').appendChild($P('Quantity checking ... OK!'))
+      $('#info').appendChild($P('Click the "Continue" button to display all words.'))
+      let button = $CE('input')
+      $('#info').appendChild(button)
+      button.setAttribute('type', 'button')
+      button.value = 'Continue'
+      button.onclick = () => {
+        $('#info').style.display = 'none'
+        $('#words h2').innerText = `${count} words in the dictionary.`
+      }
     } else {
       let p = $P('Quantity checking ... NG!')
       p.style.color = 'red'

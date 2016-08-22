@@ -49,7 +49,7 @@ request.onsuccess = (event) => {
     $('#info').appendChild($P(`How many records in database.json: ${len}`))
 
     for (key in dbJSON) {
-      store.put(dbJSON[key], parseInt(key))
+      store.add(dbJSON[key], parseInt(key))
     }
 
   }
