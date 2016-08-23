@@ -1,3 +1,23 @@
 body {
   margin-left: 50px;
+  margin-right: 100px;
+}
+
+#words {
+  line-height: 150%;
+}
+
+fieldset {
+  margin-top: 25px;
+}
+
+legend {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin-left: 10px;
+  margin-right: 10px; 
+}
+
+label {
+  margin-right: 10px;
 }

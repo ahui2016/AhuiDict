@@ -47,6 +47,7 @@ request.onsuccess = (event) => {
     $('#info').appendChild($P('Open objectStore ... successful'))
     $('#info').appendChild($P(`How many records in   indexedDB  : ${count}`))
     $('#info').appendChild($P(`How many records in database.json: ${len}`))
+
     if (count === len) {
       $('#info').appendChild($P('Quantity checking ... OK!'))
       $('#info').appendChild($P('Click the "Continue" button to display all words.'))
@@ -54,9 +55,22 @@ request.onsuccess = (event) => {
       $('#info').appendChild(button)
       button.setAttribute('type', 'button')
       button.value = 'Continue'
+
       button.onclick = () => {
         $('#info').style.display = 'none'
         $('#words h2').innerText = `${count} words in the dictionary.`
+        
+        let store = db.transaction('dictStore').objectStore('dictStore')
+        store.openCursor().onsuccess = (event) => {
+          let cursor = event.target.result
+          if (cursor) {
+            let fieldset = wordFieldset(cursor.key, cursor.value)
+            $('#words').appendChild(fieldset)
+            cursor.continue()
+          } else {
+            $('#words').appendChild($P('All words has been listed out.'))
+          }
+        }
       }
     } else {
       let p = $P('Quantity checking ... NG!')
@@ -65,7 +79,21 @@ request.onsuccess = (event) => {
       transaction.abort()
     }
   }
+}
 
-  db.close()
-  let transaction2 = db.transaction('dictStore', 'readonly')
+function wordFieldset(id, word) {
+  let fieldset = $CE('fieldset')
+  let legend = $CE('legend')
+  legend.innerText = id
+  fieldset.appendChild(legend)
+  for (item in word) {
+    let label = $CE('label')
+    label.innerText = item
+    fieldset.appendChild(label)
+    let definition = $CE('input')
+    definition.value = word[item]
+    fieldset.appendChild(definition)
+    fieldset.appendChild($CE('br'))
+  }
+  return fieldset
 }
