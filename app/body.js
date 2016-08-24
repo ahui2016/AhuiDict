@@ -83,17 +83,58 @@ request.onsuccess = (event) => {
 
 function wordFieldset(id, word) {
   let fieldset = $CE('fieldset')
+  fieldset.setAttribute('id', `fieldset-${id}`)
   let legend = $CE('legend')
   legend.innerText = id
   fieldset.appendChild(legend)
   for (item in word) {
-    let label = $CE('label')
-    label.innerText = item
-    fieldset.appendChild(label)
-    let definition = $CE('input')
-    definition.value = word[item]
-    fieldset.appendChild(definition)
-    fieldset.appendChild($CE('br'))
+    let p = $CE('p')
+    let label = $CE('strong')
+    label.innerText = `${item}:`
+    p.appendChild(label)
+    fieldset.appendChild(p)
+    let content = undefined
+    let code = undefined
+    let span = undefined
+    switch(item) {
+      case 'ja':
+      case 'cn':
+      case 'en':
+        word[item].forEach((v) => {
+          code = $CE('code')
+          code.innerText = v
+          p.appendChild(code)
+        })
+        break;      
+      case 'img':
+        span = $CE('span')
+        span.innerText = `${word[item]} pictures`
+        p.appendChild(span)
+        let showImages = $CE('input')
+        showImages.setAttribute('type', 'button')
+        showImages.setAttribute('value', 'show images')
+        showImages.setAttribute('data-pic', word[item])
+        showImages.setAttribute('data-id', id)
+        p.appendChild(showImages)
+        showImages.onclick = (event) => {
+          let n = event.target.getAttribute('data-pic')
+          let dataId = event.target.getAttribute('data-id')
+          let suffix = 'a'.charCodeAt()
+          for (let i = 0; i < n; i++) {
+            suffix += i
+            let filename = `./images/${dataId}${String.fromCharCode(suffix)}`
+            let img = $CE('img')
+            img.setAttribute('src', filename)
+            $(`#fieldset-${dataId}`).appendChild(img)
+          }
+          event.target.style.display = 'none'
+        }
+        break;
+      default:
+        span = $CE('span')
+        span.innerText = word[item]
+        break;
+    }
   }
   return fieldset
 }

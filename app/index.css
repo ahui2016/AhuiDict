@@ -18,6 +18,6 @@ legend {
   margin-right: 10px; 
 }
 
-label {
-  margin-right: 10px;
+fieldset span, code {
+  margin-left: 10px;
 }
