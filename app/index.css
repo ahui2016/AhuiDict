@@ -21,3 +21,12 @@ legend {
 fieldset span, code {
   margin-left: 10px;
 }
+
+fieldset code {
+  color: #eee;
+  background-color: SeaGreen;
+}
+
+fieldset code:hover {
+  cursor: pointer;
+}

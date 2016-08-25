@@ -23,7 +23,7 @@ request.onerror = (event) => {
 request.onupgradeneeded = (event) => {
   let db = event.target.result
   let store = db.createObjectStore('dictStore', {autoIncrement: true})
-  store.createIndex('ja', 'ja', {unique: false, multiEntry: true})
+  store.createIndex('jp', 'jp', {unique: false, multiEntry: true})
   store.createIndex('cn', 'cn', {unique: false, multiEntry: true})
   store.createIndex('en', 'en', {unique: false, multiEntry: true})
   $('#info').appendChild($P('on upgrade needed:'))

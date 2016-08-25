@@ -2,6 +2,8 @@ $('header h1').innerText = `${packageJSON.name}`
 $('header').appendChild($CE('p'))
 $('header p').innerText = `${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.`
 
+var popup = undefined
+
 let request = indexedDB.open('dictDB')
 
 request.onerror = (event) => {
@@ -15,7 +17,7 @@ request.onerror = (event) => {
 request.onupgradeneeded = (event) => {
   let db = event.target.result
   let store = db.createObjectStore('dictStore', {autoIncrement: true})
-  store.createIndex('ja', 'ja', {unique: false, multiEntry: true})
+  store.createIndex('jp', 'jp', {unique: false, multiEntry: true})
   store.createIndex('cn', 'cn', {unique: false, multiEntry: true})
   store.createIndex('en', 'en', {unique: false, multiEntry: true})
   $('#info').appendChild($P('on upgrade needed:'))
@@ -96,27 +98,53 @@ function wordFieldset(id, word) {
     let content = undefined
     let code = undefined
     let span = undefined
+    let copy = undefined
+    let del = undefined
     switch(item) {
-      case 'ja':
+      case 'jp':
       case 'cn':
       case 'en':
-        word[item].forEach((v) => {
+        word[item].forEach((v, i) => {
           code = $CE('code')
           code.innerText = v
+          code.setAttribute('data-id', `popup-${id}-${item}-${i}`)
           p.appendChild(code)
+          span = $CE('span')
+          span.setAttribute('id', `popup-${id}-${item}-${i}`)
+          span.style.display = 'none'
+          p.appendChild(span)
+          copy = $CE('input')
+          copy.setAttribute('type', 'button')
+          copy.setAttribute('value', 'copy')
+          span.appendChild(copy)
+          del = $CE('input')
+          del.setAttribute('type', 'button')
+          del.setAttribute('value', 'delete')
+          span.appendChild(del)
+          code.onclick = (event) => {
+            if (popup) {
+              $(`#${popup}`).style.display = 'none'
+            }
+            popup = event.target.getAttribute('data-id')
+            $(`#${popup}`).style.display = 'inline'
+          }
         })
         break;      
       case 'img':
+        let pictureArea = $CE('p')
+        pictureArea.setAttribute('id', `picArea-${id}`)
+        p.parentNode.appendChild(pictureArea)
         span = $CE('span')
         span.innerText = `${word[item]} pictures`
         p.appendChild(span)
-        let showImages = $CE('input')
-        showImages.setAttribute('type', 'button')
-        showImages.setAttribute('value', 'show images')
-        showImages.setAttribute('data-pic', word[item])
-        showImages.setAttribute('data-id', id)
-        p.appendChild(showImages)
-        showImages.onclick = (event) => {
+        
+        let showPictures = $CE('input')
+        showPictures.setAttribute('type', 'button')
+        showPictures.setAttribute('value', 'Show')
+        showPictures.setAttribute('data-pic', word[item])
+        showPictures.setAttribute('data-id', id)
+        p.appendChild(showPictures)
+        showPictures.onclick = (event) => {
           let n = event.target.getAttribute('data-pic')
           let dataId = event.target.getAttribute('data-id')
           let suffix = 'a'.charCodeAt()
@@ -125,9 +153,39 @@ function wordFieldset(id, word) {
             let filename = `./images/${dataId}${String.fromCharCode(suffix)}`
             let img = $CE('img')
             img.setAttribute('src', filename)
-            $(`#fieldset-${dataId}`).appendChild(img)
+            $(`#picArea-${dataId}`).appendChild(img)
+            $(`#picArea-${dataId}`).appendChild($CE('br'))
           }
           event.target.style.display = 'none'
+          $(`#hide-${dataId}`).style.display = 'inline'
+        }
+
+        let hidePictures = $CE('input')
+        hidePictures.setAttribute('type', 'button')
+        hidePictures.setAttribute('value', 'Hide')
+        hidePictures.setAttribute('data-id', id)
+        hidePictures.setAttribute('id', `hide-${id}`)
+        hidePictures.style.display = 'none'
+        p.appendChild(hidePictures)
+        hidePictures.onclick = (event) => {
+          let dataId = event.target.getAttribute('data-id')
+          event.target.style.display = 'none'
+          $(`#picArea-${dataId}`).style.display = 'none'
+          $(`#showAgain-${dataId}`).style.display = 'inline'
+        }
+
+        let showAgain = $CE('input')
+        showAgain.setAttribute('type', 'button')
+        showAgain.setAttribute('value', 'Show')
+        showAgain.setAttribute('data-id', id)
+        showAgain.setAttribute('id', `showAgain-${id}`)
+        showAgain.style.display = 'none'
+        p.appendChild(showAgain)
+        showAgain.onclick = (event) => {
+          let dataId = event.target.getAttribute('data-id')
+          event.target.style.display = 'none'
+          $(`#picArea-${dataId}`).style.display = 'block'
+          $(`#hide-${dataId}`).style.display = 'inline'
         }
         break;
       default:
