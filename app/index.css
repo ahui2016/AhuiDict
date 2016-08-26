@@ -25,6 +25,7 @@ fieldset span, code {
 fieldset code {
   color: #eee;
   background-color: SeaGreen;
+  padding: 2.5px;
 }
 
 fieldset code:hover {
