@@ -1,6 +1,12 @@
 $('header h1').innerText = `${packageJSON.name}`
-$('header').appendChild($CE('p'))
+$('header').appendChild(document.createElement('p'))
 $('header p').innerText = `${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.`
+
+function $P (text) {
+  let p = document.createElement('p')
+  p.innerText = text
+  return p
+}
 
 const transactionOnabort = (event) => {
   if (event.target.error === null) {

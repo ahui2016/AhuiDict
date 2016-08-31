@@ -3,9 +3,11 @@ var AhuiDict = React.createClass({
     return {
       errorMsg: [],
       successMsg: [],
-      continueButton: 'none'
+      continueButton: 'none',
+      clicked: false // Use to hide AhuiDict.Info
     }
   },
+
   componentDidMount: function() {
     let request = indexedDB.open('dictDB')
     
@@ -17,14 +19,26 @@ var AhuiDict = React.createClass({
       })
     }
 
+    request.onupgradeneeded = (event) => {
+      let db = event.target.result
+      let store = db.createObjectStore('dictStore', {autoIncrement: true})
+      store.createIndex('jp', 'jp', {unique: false, multiEntry: true})
+      store.createIndex('cn', 'cn', {unique: false, multiEntry: true})
+      store.createIndex('en', 'en', {unique: false, multiEntry: true})
+
+      let successMsg = this.state.successMsg
+      successMsg.push('on upgrade needed:')
+      successMsg.push(`oldVersion: ${event.oldVersion}, newVersion: ${event.newVersion}`)
+      this.setState({
+        successMsg: successMsg
+      })
+    }
+
     request.onsuccess = (event) => {
       let db = event.target.result
       let successMsg = this.state.successMsg
       successMsg.push('on success:')
       successMsg.push(`current version: ${db.version}`)
-      // this.setState({
-      //   successMsg: successMsg
-      // })
 
       let transaction = db.transaction('dictStore', 'readonly')
 
@@ -69,6 +83,13 @@ var AhuiDict = React.createClass({
     }
   },
 
+  handleClick: function() {
+    this.setState({
+      clicked: true,
+      continueButton: 'none'
+    })
+  },
+
   render: function() {
     return (
       <article>
@@ -78,8 +99,9 @@ var AhuiDict = React.createClass({
         </header>
         <AhuiDict.Info errorMsg={this.state.errorMsg}
                        successMsg={this.state.successMsg}
-                       continueButton={this.state.continueButton} />
-        <AhuiDict.Words />
+                       clicked={this.state.clicked} />
+        <AhuiDict.Words continueButton={this.state.continueButton}
+                        onClick={this.handleClick} />
       </article>
     )
   }
@@ -88,16 +110,13 @@ var AhuiDict = React.createClass({
 AhuiDict.Info = React.createClass({
   render: function() {
     return (
-      <section>
+      <section style={{display: this.props.clicked ? 'none' : 'block'}}>
         <h2>Loading...</h2>
         {
           this.props.successMsg.map(function(msg, i) {
             return <p key={i}>{msg}</p>
           })
         }
-        <input type='button'
-               value='Continue'
-               style={{display: this.props.continueButton}} />
         {
           this.props.errorMsg.map(function(msg, i) {
             return <p key={i}
@@ -110,11 +129,174 @@ AhuiDict.Info = React.createClass({
 })
 
 AhuiDict.Words = React.createClass({
-  render: function() {
+  getInitialState: function() {
+    return {
+      count: 0,
+      words: [],
+      done: false, // Use to show 'All words has been listed out.'
+      showPic: new Set() // Send to AhuiDict.Words.Fieldset
+    }
+  },
+
+  handleClick: function() {
+    this.props.onClick() // AhuiDict.handleClick
+
+    let request = indexedDB.open('dictDB')
+    
+    request.onerror = (event) => {
+      console.log(event.target.error)
+      alert(event.target.error)
+    }
+
+    request.onsuccess = (event) => {
+      let db = event.target.result
+      let store = db.transaction('dictStore').objectStore('dictStore')
+      let countRequest = store.count()
+      countRequest.onsuccess = () => {
+        this.setState({
+          count: countRequest.result
+        })
+      }
+      let words = []
+      store.openCursor().onsuccess = (event) => {
+        let cursor = event.target.result
+        if (cursor) {
+          let word = cursor.value
+          word.key = cursor.key
+          let imgFiles = []
+          let suffix = 'a'.charCodeAt()
+          for (let i = 0; i < word.img; i++) {
+            suffix += i
+            let filename = `./images/${word.key}${String.fromCharCode(suffix)}`
+            imgFiles.push(filename)
+          }
+          word.imgFiles = imgFiles
+          words.push(word)
+          cursor.continue()
+        } else {
+          this.setState({
+            words: words,
+            done: true
+          })
+        }
+      }
+    }
+  },
+
+  render: function() {  
     return (
       <section>
-        <h2></h2>
+        <input type='button'
+               value='Continue'
+               style={{display: this.props.continueButton}}
+               onClick={this.handleClick} />
+        <h2>{this.state.count ? `${this.state.count} words in the dictionary.` : ''}</h2>
+        <AhuiDict.Words.Fieldset words={this.state.words} />
+        <p>{this.state.done ? 'All words has been listed out.' : ''}</p>
       </section>
+    )
+  }
+})
+
+AhuiDict.Words.Fieldset = React.createClass({
+  getInitialState: function() {
+    return {
+      popup: undefined, // Use to toggle `copy` and `delete` buttons.
+      showPic: new Set(),
+
+      // When the Show button is clicked, add it in to state.showButtons,
+      // If the show button is in state.Buttons, hide it,
+      // at the same time, show the toggle button.
+      showButtons: new Set()
+    }
+  },
+
+  popup: function(id) {
+    this.setState({
+      popup: id
+    })
+  },
+
+  jpCnEn: function(word, lang, key) {
+    return <p key={key}><strong>{lang}</strong>:{
+      word[lang].map(function(item, k) {
+        return <span key={k}>
+          <code onClick={this.popup.bind(this, `word-${word.key}-${lang}-${k}`)}>
+            {item}</code>
+          <span style={{
+                  display: this.state.popup === `word-${word.key}-${lang}-${k}`
+                    ? 'inline' : 'none'}}>
+            <input type='button' value='copy' />
+            <input type='button' value='delete' />
+          </span>
+        </span>
+      }.bind(this))
+    }</p>
+  },
+
+  showPic: function(pic) {
+    let showPic = this.state.showPic
+    showPic.add(pic)
+    let showButtons = this.state.showButtons
+    showButtons.add(pic)
+    this.setState({
+      showButtons: showButtons,
+      showPic: showPic
+    })
+  },
+
+  togglePic: function(pic) {
+    let showPic = this.state.showPic
+    if (showPic.has(pic)) {
+      showPic.delete(pic)
+    } else {
+      showPic.add(pic)
+    }
+    this.setState({
+      showPic: showPic
+    })
+  },
+
+  render: function() {
+    return (
+      <div>
+        {
+          this.props.words.map(function(word) {
+            return <fieldset key={word.key}>
+              <legend>{word.key}</legend>
+              {
+                ['jp', 'cn', 'en'].map(function(lang, key) {
+                  return this.jpCnEn(word, lang, key)
+                }.bind(this))
+              }
+              <p><strong>img</strong>:
+                <span>{word.img ? `${word.img} pictures` : 'No picture'}</span>
+                <input
+                  type='button'
+                  value='Show'
+                  onClick={this.showPic.bind(this, `showPic-${word.key}`)}
+                  style={{display: word.img && !this.state.showButtons.has(`showPic-${word.key}`)
+                      ? 'inline' : 'none'}} />
+                <input
+                  type='button'
+                  value={this.state.showPic.has(`showPic-${word.key}`)
+                      ? 'Hide' : 'Show'}
+                  onClick={this.togglePic.bind(this, `showPic-${word.key}`)}
+                  style={{display: this.state.showButtons.has(`showPic-${word.key}`)
+                      ? 'inline' : 'none'}} />
+              </p>
+              <p style={{display: this.state.showPic.has(`showPic-${word.key}`)
+                   ? 'block' : 'none'}}>
+                {
+                  word.imgFiles.map(function(imgFile, key) {
+                    return <img key={key} src={imgFile}  />
+                  })
+                }
+              </p>
+            </fieldset>
+          }.bind(this))
+        }
+      </div>
     )
   }
 })
