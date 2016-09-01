@@ -14,9 +14,7 @@ var AhuiDict = React.createClass({
     request.onerror = (event) => {
       let errorMsg = this.state.errorMsg
       errorMsg.push(event.target.error)
-      this.setState({
-        errorMsg: errorMsg
-      })
+      this.setState({ errorMsg: errorMsg })
     }
 
     request.onupgradeneeded = (event) => {
@@ -28,10 +26,9 @@ var AhuiDict = React.createClass({
 
       let successMsg = this.state.successMsg
       successMsg.push('on upgrade needed:')
-      successMsg.push(`oldVersion: ${event.oldVersion}, newVersion: ${event.newVersion}`)
-      this.setState({
-        successMsg: successMsg
-      })
+      successMsg.push(
+        `oldVersion: ${event.oldVersion}, newVersion: ${event.newVersion}`)
+      this.setState({ successMsg: successMsg })
     }
 
     request.onsuccess = (event) => {
@@ -44,17 +41,20 @@ var AhuiDict = React.createClass({
 
       transaction.onabort = (event) => {
         if (event.target.error === null) {
-          alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
+          alert('(null) The transaction is not finished\
+          , is finished and successfully committed\
+          , or was aborted with IDBTransaction.abort function.')
         } else {
+          console.log(event.target.error)
           alert(event.target.error)
         }
       }
 
       let store = transaction.objectStore('dictStore')
-      let countRequest = store.count()
+      let requestCount = store.count()
 
-      countRequest.onsuccess = () => {
-        let count = countRequest.result
+      requestCount.onsuccess = () => {
+        let count = requestCount.result
         const dbJSON = require('./database.json')
         let len = Object.keys(dbJSON).length
         successMsg.push('Open objectStore ... successful')
@@ -64,30 +64,21 @@ var AhuiDict = React.createClass({
         if (count === len) {
           successMsg.push('Quantity checking ... OK!')
           successMsg.push('Click the "Continue" button to display all words.')
-          this.setState({
-            continueButton: 'block'
-          })
+          this.setState({ continueButton: 'block' })
         } else {
           let errorMsg = this.state.errorMsg
           errorMsg.push(event.target.error)
-          this.setState({
-            errorMsg: errorMsg
-          })
+          this.setState({ errorMsg: errorMsg })
           transaction.abort()
         }
       }
       
-      this.setState({
-        successMsg: successMsg
-      })
+      this.setState({ successMsg: successMsg })
     }
   },
 
   handleClick: function() {
-    this.setState({
-      clicked: true,
-      continueButton: 'none'
-    })
+    this.setState({ clicked: true, continueButton: 'none' })
   },
 
   render: function() {
@@ -95,7 +86,9 @@ var AhuiDict = React.createClass({
       <article>
         <header>
           <h1>{packageJSON.name}</h1>
-          <p>{`${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.`}</p>
+          <p>{`${packageJSON.name} ${packageJSON.version}\
+          , Node ${process.versions.node}, Chrome ${process.versions.chrome}\
+          , Electron ${process.versions.electron}.`}</p>
         </header>
         <AhuiDict.Info errorMsg={this.state.errorMsg}
                        successMsg={this.state.successMsg}
@@ -151,11 +144,9 @@ AhuiDict.Words = React.createClass({
     request.onsuccess = (event) => {
       let db = event.target.result
       let store = db.transaction('dictStore').objectStore('dictStore')
-      let countRequest = store.count()
-      countRequest.onsuccess = () => {
-        this.setState({
-          count: countRequest.result
-        })
+      let requestCount = store.count()
+      requestCount.onsuccess = () => {
+        this.setState({ count: requestCount.result })
       }
       let words = []
       store.openCursor().onsuccess = (event) => {
@@ -174,10 +165,47 @@ AhuiDict.Words = React.createClass({
           words.push(word)
           cursor.continue()
         } else {
-          this.setState({
-            words: words,
-            done: true
-          })
+          this.setState({ words: words, done: true })
+        }
+      }
+    }
+  },
+
+  deleteItem: function(key, lang, k, pos) { // words[pos] -> word
+    let words = this.state.words
+
+    let request = indexedDB.open('dictDB')
+    
+    request.onerror = (event) => {
+      console.log(event.target.error)
+      alert(event.target.error)
+    }
+
+    request.onsuccess = (event) => {
+      let db = event.target.result
+      let transaction = db.transaction('dictStore', 'readwrite')
+
+      transaction.onabort = (event) => {
+        if (event.target.error === null) {
+          alert('(null) The transaction is not finished\
+          , is finished and successfully committed\
+          , or was aborted with IDBTransaction.abort function.')
+        } else {
+          console.log(event.target.error)
+          alert(event.target.error)
+        }
+      }
+
+      let store = transaction.objectStore('dictStore')
+      let requestGet = store.get(key)
+      requestGet.onsuccess = (event) => {
+        let entry = event.target.result
+        entry[lang].splice(k, 1)
+
+        let requestUpdate = store.put(entry, key)
+        requestUpdate.onsuccess = () => {
+          words[pos][lang] = entry[lang]
+          this.setState({ words: words })
         }
       }
     }
@@ -190,8 +218,11 @@ AhuiDict.Words = React.createClass({
                value='Continue'
                style={{display: this.props.continueButton}}
                onClick={this.handleClick} />
-        <h2>{this.state.count ? `${this.state.count} words in the dictionary.` : ''}</h2>
-        <AhuiDict.Words.Fieldset words={this.state.words} />
+        <h2>{this.state.count
+          ? `${this.state.count} words in the dictionary.`
+          : ''}</h2>
+        <AhuiDict.Words.Fieldset
+            words={this.state.words} deleteItem={this.deleteItem} />
         <p>{this.state.done ? 'All words has been listed out.' : ''}</p>
       </section>
     )
@@ -201,7 +232,8 @@ AhuiDict.Words = React.createClass({
 AhuiDict.Words.Fieldset = React.createClass({
   getInitialState: function() {
     return {
-      popup: undefined, // Use to toggle `copy` and `delete` buttons.
+      newWord: '',
+      popup: '', // Use to toggle `copy` and `delete` buttons.
       showPic: new Set(),
 
       // When the Show button is clicked, add it in to state.showButtons,
@@ -212,26 +244,50 @@ AhuiDict.Words.Fieldset = React.createClass({
   },
 
   popup: function(id) {
-    this.setState({
-      popup: id
-    })
+    this.setState({ popup: id })
   },
 
-  jpCnEn: function(word, lang, key) {
-    return <p key={key}><strong>{lang}</strong>:{
-      word[lang].map(function(item, k) {
-        return <span key={k}>
-          <code onClick={this.popup.bind(this, `word-${word.key}-${lang}-${k}`)}>
-            {item}</code>
-          <span style={{
-                  display: this.state.popup === `word-${word.key}-${lang}-${k}`
-                    ? 'inline' : 'none'}}>
-            <input type='button' value='copy' />
-            <input type='button' value='delete' />
-          </span>
-        </span>
-      }.bind(this))
-    }</p>
+  copyToClip: function(item) {
+    clipboard.writeText(item)
+  },
+
+  deleteItem: function(key, lang, k, pos) {
+    if (confirm(`Delete【${this.props.words[pos][lang][k]}】?`)) {
+      this.props.deleteItem(key, lang, k, pos)
+    }
+  },
+
+  newWordText: function(event) {
+    this.setState({ newWord: event.target.value })
+  },
+
+  jpCnEn: function(word, lang, pKey, pos) {
+    return (
+      <p key={pKey}>
+        <strong>{lang}</strong>:
+        {
+          word[lang].map(function(item, k) {
+            return <span key={k}>
+              <code onClick={
+                this.popup.bind(this, `word-${word.key}-${lang}-${k}`)}>{item}</code>
+              <span style={{display:
+                this.state.popup === `word-${word.key}-${lang}-${k}`
+                ? 'inline' : 'none'}}>
+                <input type='button' value='copy' onClick={
+                  this.copyToClip.bind(this, item)} />
+                <input type='button' value='delete' onClick={
+                  this.deleteItem.bind(this, word.key, lang, k, pos)} />
+              </span>
+            </span>
+          }.bind(this))
+        }
+        <input type='text' placeholder='New word' value={this.state.newWord}
+               onChange={this.newWordText}
+               style={{display:
+                 this.state.popup.indexOf(`word-${word.key}-${lang}`) > -1
+                 ? 'inline' : 'none'}} />
+      </p>
+    )
   },
 
   showPic: function(pic) {
@@ -239,10 +295,7 @@ AhuiDict.Words.Fieldset = React.createClass({
     showPic.add(pic)
     let showButtons = this.state.showButtons
     showButtons.add(pic)
-    this.setState({
-      showButtons: showButtons,
-      showPic: showPic
-    })
+    this.setState({ showButtons: showButtons, showPic: showPic })
   },
 
   togglePic: function(pic) {
@@ -252,21 +305,19 @@ AhuiDict.Words.Fieldset = React.createClass({
     } else {
       showPic.add(pic)
     }
-    this.setState({
-      showPic: showPic
-    })
+    this.setState({ showPic: showPic })
   },
 
   render: function() {
     return (
       <div>
         {
-          this.props.words.map(function(word) {
+          this.props.words.map(function(word, pos) { // words[pos] -> word
             return <fieldset key={word.key}>
               <legend>{word.key}</legend>
               {
                 ['jp', 'cn', 'en'].map(function(lang, key) {
-                  return this.jpCnEn(word, lang, key)
+                  return this.jpCnEn(word, lang, key, pos)
                 }.bind(this))
               }
               <p><strong>img</strong>:

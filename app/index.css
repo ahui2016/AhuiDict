@@ -4,7 +4,7 @@ body {
 }
 
 #words {
-  line-height: 150%;
+  line-height: 125%;
 }
 
 fieldset {
@@ -18,7 +18,7 @@ legend {
   padding-right: 5px; 
 }
 
-fieldset span, code {
+fieldset span, code, input {
   margin-left: 10px;
 }
 
