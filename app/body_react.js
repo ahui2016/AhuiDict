@@ -41,9 +41,7 @@ var AhuiDict = React.createClass({
 
       transaction.onabort = (event) => {
         if (event.target.error === null) {
-          alert('(null) The transaction is not finished\
-          , is finished and successfully committed\
-          , or was aborted with IDBTransaction.abort function.')
+          alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
         } else {
           console.log(event.target.error)
           alert(event.target.error)
@@ -171,7 +169,7 @@ AhuiDict.Words = React.createClass({
     }
   },
 
-  deleteItem: function(key, lang, k, pos) { // words[pos] -> word
+  wordEdit: function(key, lang, item, pos) { // words[pos] -> word
     let words = this.state.words
 
     let request = indexedDB.open('dictDB')
@@ -187,9 +185,7 @@ AhuiDict.Words = React.createClass({
 
       transaction.onabort = (event) => {
         if (event.target.error === null) {
-          alert('(null) The transaction is not finished\
-          , is finished and successfully committed\
-          , or was aborted with IDBTransaction.abort function.')
+          alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
         } else {
           console.log(event.target.error)
           alert(event.target.error)
@@ -200,7 +196,11 @@ AhuiDict.Words = React.createClass({
       let requestGet = store.get(key)
       requestGet.onsuccess = (event) => {
         let entry = event.target.result
-        entry[lang].splice(k, 1)
+        if (typeof item === 'string') {
+          entry[lang].push(item)
+        } else {
+          entry[lang].splice(item, 1)
+        }
 
         let requestUpdate = store.put(entry, key)
         requestUpdate.onsuccess = () => {
@@ -222,7 +222,7 @@ AhuiDict.Words = React.createClass({
           ? `${this.state.count} words in the dictionary.`
           : ''}</h2>
         <AhuiDict.Words.Fieldset
-            words={this.state.words} deleteItem={this.deleteItem} />
+            words={this.state.words} wordEdit={this.wordEdit} />
         <p>{this.state.done ? 'All words has been listed out.' : ''}</p>
       </section>
     )
@@ -232,8 +232,8 @@ AhuiDict.Words = React.createClass({
 AhuiDict.Words.Fieldset = React.createClass({
   getInitialState: function() {
     return {
-      newWord: '',
       popup: '', // Use to toggle `copy` and `delete` buttons.
+      edit: '',
       showPic: new Set(),
 
       // When the Show button is clicked, add it in to state.showButtons,
@@ -244,21 +244,26 @@ AhuiDict.Words.Fieldset = React.createClass({
   },
 
   popup: function(id) {
-    this.setState({ popup: id })
+    if (id.indexOf(this.state.edit) > -1) {
+      this.setState({ popup: id })
+    } else {
+      this.setState({ popup: id, edit: '' })
+    }
   },
 
   copyToClip: function(item) {
     clipboard.writeText(item)
   },
 
-  deleteItem: function(key, lang, k, pos) {
-    if (confirm(`Delete【${this.props.words[pos][lang][k]}】?`)) {
-      this.props.deleteItem(key, lang, k, pos)
+  wordEdit: function(key, lang, item, pos) {
+    if (typeof item !== 'number') {
+      let itemValue = item.value
+      item.value = ''
+      this.setState({popup: ''})
+      this.props.wordEdit(key, lang, itemValue, pos)
+    } else if (confirm(`Delete【${this.props.words[pos][lang][item]}】?`)) {
+      this.props.wordEdit(key, lang, item, pos)
     }
-  },
-
-  newWordText: function(event) {
-    this.setState({ newWord: event.target.value })
   },
 
   jpCnEn: function(word, lang, pKey, pos) {
@@ -266,26 +271,30 @@ AhuiDict.Words.Fieldset = React.createClass({
       <p key={pKey}>
         <strong>{lang}</strong>:
         {
-          word[lang].map(function(item, k) {
-            return <span key={k}>
+          word[lang].map(function(item, i) {
+            return <span key={i}>
               <code onClick={
-                this.popup.bind(this, `word-${word.key}-${lang}-${k}`)}>{item}</code>
+                this.popup.bind(this, `word-${word.key}-${lang}-${i}`)}>{item}</code>
               <span style={{display:
-                this.state.popup === `word-${word.key}-${lang}-${k}`
+                this.state.popup === `word-${word.key}-${lang}-${i}`
                 ? 'inline' : 'none'}}>
                 <input type='button' value='copy' onClick={
                   this.copyToClip.bind(this, item)} />
                 <input type='button' value='delete' onClick={
-                  this.deleteItem.bind(this, word.key, lang, k, pos)} />
+                  this.wordEdit.bind(this, word.key, lang, i, pos)} />
               </span>
             </span>
           }.bind(this))
         }
-        <input type='text' placeholder='New word' value={this.state.newWord}
-               onChange={this.newWordText}
-               style={{display:
-                 this.state.popup.indexOf(`word-${word.key}-${lang}`) > -1
-                 ? 'inline' : 'none'}} />
+        <span style={{display: this.state.edit === `word-${word.key}`
+                ? 'inline' : 'none'}}>
+          <input type='text' ref={(ref) => this[`${lang}-${word.key}`] = ref}
+            onKeyPress={(event) => {if (event.key === 'Enter') {
+              this.wordEdit(word.key, lang, this[`${lang}-${word.key}`], pos)
+            }}} />
+          <input type='button' value='add'
+            onClick={this.wordEdit.bind(this, word.key, lang, this[`${lang}-${word.key}`], pos)} />
+        </span>
       </p>
     )
   },
@@ -314,7 +323,11 @@ AhuiDict.Words.Fieldset = React.createClass({
         {
           this.props.words.map(function(word, pos) { // words[pos] -> word
             return <fieldset key={word.key}>
-              <legend>{word.key}</legend>
+              <legend>
+                {word.key}
+                <input type='button' value='Edit' onClick={(event) => {
+                    this.setState({ edit: `word-${word.key}`, popup: ''})}} />
+              </legend>
               {
                 ['jp', 'cn', 'en'].map(function(lang, key) {
                   return this.jpCnEn(word, lang, key, pos)
