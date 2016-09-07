@@ -2,17 +2,21 @@
   "1": {
     "jp": ["マクドナルド", "まくどなるど"],
     "cn": ["麦当劳", "M记"],
-    "en": ["McDonald's"]
+    "en": ["McDonald's"],
+    "tags": ["shop", "lunch"],
+    "notes": ["Create database.json, input three records by hand.", "Import database.json into indexedDB.", "splay all records that in the indexedDB."]
   },
   "2": {
     "jp": ["非常口"],
     "cn": ["紧急出口", "逃生门"],
-    "en": ["Emergency exit"]
+    "en": ["Emergency exit"],
+    "notes": ["Create database.json, input three records by hand.", "Import database.json into indexedDB.", "splay all records that in the indexedDB."]
   },
   "3": {
     "jp": ["サイロ"],
     "cn": ["筒仓"],
     "en": ["silo"],
+    "tags": ["有图", "付図"],
     "img": 1
   },
   "4": {
