@@ -253,10 +253,10 @@ AhuiDict.Words.Fieldset = React.createClass({
   },
 
   popup: function(id) {
-    if (id.indexOf(this.state.edit) > -1) {
+    if (id.indexOf(this.state.edit) > -1) { // popup in the same fieldset
       this.setState({ popup: id })
-    } else {
-      this.setState({ popup: id, edit: '' })
+    } else {                                // popup in another fieldset
+      this.setState({ popup: id, edit: '', notes: '' })
     }
   },
 
@@ -268,9 +268,10 @@ AhuiDict.Words.Fieldset = React.createClass({
     if (typeof item !== 'number') {
       let itemValue = item.value
       item.value = ''
-      this.setState({popup: ''})
+      this.setState({popup: '', notes: ''})
       this.props.entryEdit(key, category, itemValue, pos)
     } else if (confirm(`Delete【${this.props.dictionary[pos][category][item]}】?`)) {
+      this.setState({popup: '', notes: ''})
       this.props.entryEdit(key, category, item, pos)
     }
   },
@@ -340,7 +341,11 @@ AhuiDict.Words.Fieldset = React.createClass({
               <legend>
                 {entry.key}
                 <input type='button' value='Edit' onClick={(event) => {
-                    this.setState({ edit: `entry-${entry.key}`, popup: ''})}} />
+                  if (this.state.edit === `entry-${entry.key}`) {
+                    this.setState({edit: '', popup: '', notes: ''})
+                  } else {
+                    this.setState({edit: `entry-${entry.key}`, popup: '', notes: ''})
+                  }}} />
               </legend>
               {
                 ['jp', 'cn', 'en', 'tags'].map((category, key) => {
@@ -351,20 +356,39 @@ AhuiDict.Words.Fieldset = React.createClass({
                 entry.notes.length > 0 || this.state.edit === `entry-${entry.key}`
                 ? 'block' : 'none'}}>
                 <strong>Notes</strong>:
-                <ul style={{listStyle: 'none'}}>
+                <span style={{display: this.state.edit === `entry-${entry.key}`
+                        ? 'inline' : 'none'}}>
+                  <textarea rows='2' cols='50'
+                    ref={(ref) => this[`notes-${entry.key}`] = ref} />
+                  <input type='button' value='add' onClick={this.entryEdit.bind(
+                    this, entry.key, 'notes', this[`notes-${entry.key}`], pos)} />
+                </span>
+                <ul style={{listStyle: this.state.edit === `entry-${entry.key}`
+                  ? 'none' : 'disc'}}>
 {
   entry.notes.map((item, i) => {
     let noteId = `entry-${entry.key}-notes-${i}`
     return <li key={i}>
       <input type='radio' value={noteId} checked={this.state.notes === noteId}
+        style={{display: this.state.edit === `entry-${entry.key}` ? 'inline' : 'none'}}
         onChange={() => { this.setState({notes: noteId})} } />
-      {item}
+      <span style={{display: this.state.notes !== noteId ? 'inline' : 'none'}}>
+        {item}</span>
+      <span style={{display:
+        this.state.notes === noteId && this.state.edit === `entry-${entry.key}`
+        ? 'inline' : 'none'}}>
+        <textarea rows='3' cols='50' defaultValue={item} />
+        <input type='button' value='delete' onClick={
+          this.entryEdit.bind(this, entry.key, 'notes', i, pos)} />
+      </span>
     </li>
   })
 }
                 </ul>
               </div>
-              <p>
+              <p style={{display:
+                entry.img || this.state.edit === `entry-${entry.key}`
+                ? 'block' : 'none'}}>
                 <strong>Images</strong>:
                 <span>{entry.img ? `${entry.img} pictures` : 'No picture'}</span>
                 <input

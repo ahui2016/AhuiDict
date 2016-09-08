@@ -22,8 +22,6 @@ fieldset span, input {
   margin-left: 10px;
 }
 
-
-
 fieldset code {
   color: #eee;
   background-color: steelblue;
@@ -34,10 +32,14 @@ fieldset code:hover {
   cursor: pointer;
 }
 
-.tags code {
+fieldset .tags code {
   background-color: SeaGreen;
 }
 
 fieldset .popup, input[value="copy"], input[value="delete"], input[value="add"] {
   margin-left:2.5px;
+}
+
+fieldset textarea {
+  vertical-align: middle;
 }
