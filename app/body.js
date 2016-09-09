@@ -206,8 +206,12 @@ AhuiDict.Words = React.createClass({
             entry[category] = []
           }
           entry[category].push(item)
-        } else {
+        } else if (typeof item === 'number') {
           entry[category].splice(item, 1)
+        } else { // item -> [updateStart, updateValue]
+          let updateStart = item[0]
+          let updateValue = item[1]
+          entry[category].splice(updateStart, 1, updateValue)
         }
 
         let requestUpdate = store.put(entry, key)
@@ -265,15 +269,20 @@ AhuiDict.Words.Fieldset = React.createClass({
   },
 
   entryEdit: function(key, category, item, pos) {
-    if (typeof item !== 'number') {
-      let itemValue = item.value
-      item.value = ''
+    if (typeof item === 'number') {
+      if (confirm(`Delete【${this.props.dictionary[pos][category][item]}】?`)) {
+        this.setState({popup: '', notes: ''})
+        this.props.entryEdit(key, category, item, pos)
+      }
+    } else { // item is an array or a HTML-Element
+      if (Array.isArray(item)) { // item -> [updateStart, <textarea>]
+        this.props.entryEdit(key, category, [item[0], item[1].value], pos)
+      } else { // item -> <input[type="text"]> or <textarea>
+        this.props.entryEdit(key, category, item.value, pos)
+        item.value = ''
+      }
       this.setState({popup: '', notes: ''})
-      this.props.entryEdit(key, category, itemValue, pos)
-    } else if (confirm(`Delete【${this.props.dictionary[pos][category][item]}】?`)) {
-      this.setState({popup: '', notes: ''})
-      this.props.entryEdit(key, category, item, pos)
-    }
+    } 
   },
 
   jpCnEn: function(entry, category, pKey, pos) {
@@ -334,91 +343,95 @@ AhuiDict.Words.Fieldset = React.createClass({
 
   render: function() {
     return (
-      <div>
-        {
-          this.props.dictionary.map(function(entry, pos) { // dictionary[pos] -> entry
-            return <fieldset key={entry.key}>
-              <legend>
-                {entry.key}
-                <input type='button' value='Edit' onClick={(event) => {
-                  if (this.state.edit === `entry-${entry.key}`) {
-                    this.setState({edit: '', popup: '', notes: ''})
-                  } else {
-                    this.setState({edit: `entry-${entry.key}`, popup: '', notes: ''})
-                  }}} />
-              </legend>
-              {
-                ['jp', 'cn', 'en', 'tags'].map((category, key) => {
-                  return this.jpCnEn(entry, category, key, pos)
-                })
-              }
-              <div style={{display:
-                entry.notes.length > 0 || this.state.edit === `entry-${entry.key}`
-                ? 'block' : 'none'}}>
-                <strong>Notes</strong>:
-                <span style={{display: this.state.edit === `entry-${entry.key}`
-                        ? 'inline' : 'none'}}>
-                  <textarea rows='2' cols='50'
-                    ref={(ref) => this[`notes-${entry.key}`] = ref} />
-                  <input type='button' value='add' onClick={this.entryEdit.bind(
-                    this, entry.key, 'notes', this[`notes-${entry.key}`], pos)} />
-                </span>
-                <ul style={{listStyle: this.state.edit === `entry-${entry.key}`
-                  ? 'none' : 'disc'}}>
+<div>
+{
+  this.props.dictionary.map(function(entry, pos) { /* dictionary[pos] -> entry */
+    let entryId = `entry-${entry.key}`
+    return <fieldset key={entry.key}>
+      <legend>
+        {entry.key}
+        <input type='button' value='Edit' onClick={(event) => {
+          if (this.state.edit === entryId) {
+            this.setState({edit: '', popup: '', notes: ''})
+          } else {
+            this.setState({edit: entryId, popup: '', notes: ''})
+          }}} />
+      </legend>
+      {
+        ['jp', 'cn', 'en', 'tags'].map((category, key) => {
+          return this.jpCnEn(entry, category, key, pos)
+        })
+      }
+      <div style={{display:
+        entry.notes.length > 0 || this.state.edit === entryId
+        ? 'block' : 'none'}}>
+        <strong>Notes</strong>:
+        <span style={{display: this.state.edit === entryId ? 'inline' : 'none'}}>
+          <textarea rows='2' cols='50'
+            ref={(ref) => this[`notes-${entry.key}`] = ref} />
+          <input type='button' value='add' onClick={this.entryEdit.bind(
+            this, entry.key, 'notes', this[`notes-${entry.key}`], pos)} />
+        </span>
+        <ul style={{listStyle: this.state.edit === entryId ? 'none' : 'disc'}}>
 {
   entry.notes.map((item, i) => {
     let noteId = `entry-${entry.key}-notes-${i}`
     return <li key={i}>
       <input type='radio' value={noteId} checked={this.state.notes === noteId}
-        style={{display: this.state.edit === `entry-${entry.key}` ? 'inline' : 'none'}}
-        onChange={() => { this.setState({notes: noteId})} } />
+        onChange={() => {
+          this[noteId].value = item
+          this.setState({notes: noteId})}}
+        style={{display: this.state.edit === entryId ? 'inline' : 'none'}} />
       <span style={{display: this.state.notes !== noteId ? 'inline' : 'none'}}>
-        {item}</span>
+        {item}
+      </span>
       <span style={{display:
-        this.state.notes === noteId && this.state.edit === `entry-${entry.key}`
+        this.state.notes === noteId && this.state.edit === entryId
         ? 'inline' : 'none'}}>
-        <textarea rows='3' cols='50' defaultValue={item} />
+        <textarea rows='3' cols='50' defaultValue={item} ref={
+          (ref) => this[noteId] = ref} />
         <input type='button' value='delete' onClick={
           this.entryEdit.bind(this, entry.key, 'notes', i, pos)} />
+        <input type='button' value='update' onClick={this.entryEdit.bind(
+          this, entry.key, 'notes', [i, this[noteId]], pos)} />
       </span>
     </li>
   })
 }
-                </ul>
-              </div>
-              <p style={{display:
-                entry.img || this.state.edit === `entry-${entry.key}`
-                ? 'block' : 'none'}}>
-                <strong>Images</strong>:
-                <span>{entry.img ? `${entry.img} pictures` : 'No picture'}</span>
-                <input
-                  type='button'
-                  value='Show'
-                  onClick={this.showPic.bind(this, `showPic-${entry.key}`)}
-                  style={{display:
-                    entry.img && !this.state.showButtons.has(`showPic-${entry.key}`)
-                      ? 'inline' : 'none'}} />
-                <input
-                  type='button'
-                  value={this.state.showPic.has(`showPic-${entry.key}`)
-                      ? 'Hide' : 'Show'}
-                  onClick={this.togglePic.bind(this, `showPic-${entry.key}`)}
-                  style={{display:
-                    this.state.showButtons.has(`showPic-${entry.key}`)
-                      ? 'inline' : 'none'}} />
-              </p>
-              <p style={{display: this.state.showPic.has(`showPic-${entry.key}`)
-                   ? 'block' : 'none'}}>
-                {
-                  entry.imgFiles.map(function(imgFile, key) {
-                    return <img key={key} src={imgFile}  />
-                  })
-                }
-              </p>
-            </fieldset>
-          }.bind(this))
-        }
+        </ul>
       </div>
+      <p style={{display: entry.img || this.state.edit === entryId
+        ? 'block' : 'none'}}>
+        <strong>Images</strong>:
+        <span>{entry.img ? `${entry.img} pictures` : 'No picture'}</span>
+        <input
+          type='button'
+          value='Show'
+          onClick={this.showPic.bind(this, `showPic-${entry.key}`)}
+          style={{display:
+            entry.img && !this.state.showButtons.has(`showPic-${entry.key}`)
+              ? 'inline' : 'none'}} />
+        <input
+          type='button'
+          value={this.state.showPic.has(`showPic-${entry.key}`)
+              ? 'Hide' : 'Show'}
+          onClick={this.togglePic.bind(this, `showPic-${entry.key}`)}
+          style={{display:
+            this.state.showButtons.has(`showPic-${entry.key}`)
+              ? 'inline' : 'none'}} />
+      </p>
+      <p style={{display: this.state.showPic.has(`showPic-${entry.key}`)
+            ? 'block' : 'none'}}>
+        {
+          entry.imgFiles.map(function(imgFile, key) {
+            return <img key={key} src={imgFile}  />
+          })
+        }
+      </p>
+    </fieldset>
+  }.bind(this))
+}
+</div>
     )
   }
 })
