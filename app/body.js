@@ -341,6 +341,11 @@ AhuiDict.Words.Fieldset = React.createClass({
     this.setState({ showPic: showPic })
   },
 
+  ignoreDrag: function(event) {
+    event.stopPropagation()
+    event.preventDefault()
+  },
+
   render: function() {
     return (
 <div>
@@ -400,7 +405,7 @@ AhuiDict.Words.Fieldset = React.createClass({
 }
         </ul>
       </div>
-      <p style={{display: entry.img || this.state.edit === entryId
+      <div style={{display: entry.img || this.state.edit === entryId
         ? 'block' : 'none'}}>
         <strong>Images</strong>:
         <span>{entry.img ? `${entry.img} pictures` : 'No picture'}</span>
@@ -411,6 +416,16 @@ AhuiDict.Words.Fieldset = React.createClass({
           style={{display:
             entry.img && !this.state.showButtons.has(`showPic-${entry.key}`)
               ? 'inline' : 'none'}} />
+        <div id='dropBox' onDragEnter={this.ignoreDrag} onDragOver={this.ignoreDrag}
+          onDrop={(event) => {
+            event.stopPropagation()
+            event.preventDefault()
+            let file = event.dataTransfer.files[0]
+            let reader = new FileReader()
+            console.log(file.path)
+          }}>
+          <div>Drop your image here...</div>
+        </div>
         <input
           type='button'
           value={this.state.showPic.has(`showPic-${entry.key}`)
@@ -419,7 +434,7 @@ AhuiDict.Words.Fieldset = React.createClass({
           style={{display:
             this.state.showButtons.has(`showPic-${entry.key}`)
               ? 'inline' : 'none'}} />
-      </p>
+      </div>
       <p style={{display: this.state.showPic.has(`showPic-${entry.key}`)
             ? 'block' : 'none'}}>
         {

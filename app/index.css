@@ -44,3 +44,21 @@ fieldset .popup, input[value="copy"], input[value="delete"], input[value="add"],
 fieldset textarea {
   vertical-align: middle;
 }
+
+#dropBox {
+  margin: 15px;
+  width: 150px;
+  height: 150px;
+  border: 5px dashed gray;
+  border-radius: 8px;
+  background: lightyellow;
+  background-size: 100%;
+  background-repeat: no-repeat;
+  text-align: center;
+}
+
+#dropBox div {
+  margin: 35px 30px;
+  color: orange;
+  font-family: Verdana, Arial, sans-serif;
+}
