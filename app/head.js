@@ -5,6 +5,9 @@ const fs = require('fs-extra')
 
 const packageJSON = require('../package.json')
 
+const imgNodejs = './app/images/'
+const imgChrome = './images/'
+
 $('title').innerText = `${packageJSON.name} v${packageJSON.version}`
 
 // Prevent Electron app from redirecting when drag'n-dropping.

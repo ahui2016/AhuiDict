@@ -62,3 +62,7 @@ fieldset textarea {
   color: orange;
   font-family: Verdana, Arial, sans-serif;
 }
+
+.image {
+  margin-top: 10px;
+}

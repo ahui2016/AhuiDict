@@ -153,15 +153,7 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
         if (cursor) {
           let entry = cursor.value
           entry.key = cursor.key
-          let imgFiles = []
-          let a = 'a'.charCodeAt()
-          for (let i = 0; i < entry.img; i++) {
-            let suffix = a + i
-            let filename = `./images/${entry.key}${String.fromCharCode(suffix)}`
-            imgFiles.push(filename)
-          }
-          entry.imgFiles = imgFiles
-          ;['jp', 'cn', 'en', 'tags', 'notes'].forEach((category) => {
+          ;['jp', 'cn', 'en', 'tags', 'notes', 'img'].forEach((category) => {
             if (!entry[category]) entry[category] = []
           })
           dictionary.push(entry)
@@ -200,33 +192,23 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
       let requestGet = store.get(key)
       requestGet.onsuccess = (event) => {
         let entry = event.target.result
-        if (category === 'img') {
-          switch (typeof item) {
-            case 'number':
-              entry[category] = entry[category] - 1
-              dictionary[pos].imgFiles.splice(item, 1)
-              break
-            case 'string':
-              if (!entry[category]) entry[category] = 0
-              entry[category] = entry[category] + 1
-              dictionary[pos].imgFiles.push(item)
-              break
-          }
-        } else { // category !== 'img'
-          switch (typeof item) {
-            case 'string':
-              if (!entry[category]) entry[category] = []
+        switch (typeof item) {
+          case 'string':
+            if (!entry[category]) entry[category] = []
+            if (category === 'img') {
+              entry[category].unshift(item)
+            } else {
               entry[category].push(item)
-              break
-            case 'number':
-              entry[category].splice(item, 1)
-              break
-            case 'object': // item -> [updateStart, updateValue]
-              let updateStart = item[0]
-              let updateValue = item[1]
-              entry[category].splice(updateStart, 1, updateValue)
-              break
-          }
+            }
+            break
+          case 'number':
+            entry[category].splice(item, 1)
+            break
+          case 'object': // item -> [updateStart, updateValue]
+            let updateStart = item[0]
+            let updateValue = item[1]
+            entry[category].splice(updateStart, 1, updateValue)
+            break
         }
 
         let requestUpdate = store.put(entry, key)
@@ -282,20 +264,22 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
   },
 
   entryEdit: function (key, category, item, pos) {
-    if (typeof item === 'number') {
-      let theWord = this.props.dictionary[pos][category][item]
-      if (window.confirm(`Delete【${theWord}】?`)) {
-        this.hidePopup()
-        this.props.entryEdit(key, category, item, pos)
-      }
-    } else { // item is an array or a HTML-Element
-      if (Array.isArray(item)) { // item -> [updateStart, <textarea>]
-        this.props.entryEdit(key, category, [item[0], item[1].value], pos)
-      } else { // item -> <input[type="text"]> or <textarea>
-        this.props.entryEdit(key, category, item.value, pos)
+    switch (typeof item) {
+      case 'number':
+        if (window.confirm(`Delete 【${this.props.dictionary[pos][category][item]}】?`)) {
+          this.hidePopup()
+          this.props.entryEdit(key, category, item, pos)
+        }
+        break
+      case 'object': // item is an array or <input[type="text"]> or <textarea>
+        if (Array.isArray(item)) {
+          this.props.entryEdit(key, category, [item[0], item[1].value], pos)
+        } else {
+          this.props.entryEdit(key, category, item.value, pos)
+        }
         item.value = ''
-      }
-      this.hidePopup()
+        this.hidePopup()
+        break
     }
   },
 
@@ -334,8 +318,9 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
               if (event.key === 'Enter') {
                 this.entryEdit(entry.key, category, this[refId], pos)
               } }} />
-          <input type='button' value='add' onClick={
-            this.entryEdit.bind(this, entry.key, category, this[refId], pos)} />
+          <input type='button' value='add' onClick={() => {
+            this.entryEdit(entry.key, category, this[refId], pos)
+          }} />
         </span>
       </p>
     )
@@ -368,6 +353,7 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
     return (<div>
 {
   this.props.dictionary.map(function (entry, pos) { /* dictionary[pos] -> entry */
+    let imgCount = entry.img.length
     let entryId = `entry-${entry.key}`
     return <fieldset key={entry.key}>
       <legend>
@@ -427,16 +413,16 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
 }
         </ul>
       </div>
-      <div style={{display: entry.img || this.state.edit === entryId
+      <div style={{display: imgCount > 0 || this.state.edit === entryId
         ? 'block' : 'none'}}>
         <strong>Images</strong>:
-        <span>{entry.img ? `${entry.img} pictures` : 'No picture'}</span>
+        <span>{`${imgCount} picture${imgCount > 1 ? 's' : ''}`}</span>
         <input
           type='button'
           value='Show'
           onClick={this.showPic.bind(this, `showPic-${entry.key}`)}
           style={{display:
-            entry.img && !this.state.showButtons.has(`showPic-${entry.key}`)
+            imgCount > 0 && !this.state.showButtons.has(`showPic-${entry.key}`)
               ? 'inline' : 'none'}} />
         <input
           type='button'
@@ -451,35 +437,36 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
           onDrop={(event) => {
             event.stopPropagation()
             event.preventDefault()
-            let suffix = 'a'.charCodeAt()
-            if (!entry.img) entry.img = 0
-            suffix += entry.img
-            let dest = `./app/images/${entry.key}${String.fromCharCode(suffix)}`
-            let src = event.dataTransfer.files[0].path
+            let file = event.dataTransfer.files[0]
+            let src = file.path
+            let filename // initialize it
+            if (!file.type.startsWith('image')) {
+              return window.alert(`** ${src} ** is not an image file!
+Acceptable file types: .jpg .png .gif etc.`)
+            } else {
+              let suffix = `.${file.type.match(/\/(.+)/)[1]}`
+              filename = `${Date.now()}${suffix}`
+            }
+            let dest = `${imgNodejs}${filename}` // eslint-disable-line no-undef
             fs.copy(src, dest, (err) => { // eslint-disable-line no-undef
               if (err) return window.alert(err)
-              this.props.entryEdit(entry.key, 'img',
-                `./images/${entry.key}${String.fromCharCode(suffix)}`, pos)
+              this.props.entryEdit(entry.key, 'img', filename, pos)
               this.hidePopup()
             })
           }}>
           <div>Drop your image here...</div>
         </div>
       </div>
-      <p style={{display: this.state.showPic.has(`showPic-${entry.key}`)
+      <div style={{display: this.state.showPic.has(`showPic-${entry.key}`)
             ? 'block' : 'none'}}>
         {
-          entry.imgFiles.map((imgFile, key) => {
-            return <span key={key}>
+          entry.img.map((filename, key) => {
+            return <div key={key} className='image'>
               <input type='button' value='↓ delete ↓'
-                style={{
-                  display: this.state.edit === entryId ? 'inline' : 'none',
-                  marginTop: '10px'
-                }}
+                style={{display: this.state.edit === entryId ? 'inline' : 'none'}}
                 onClick={() => {
-                  if (window.confirm('Delete this photo?')) {
-                    let filename = `./app/images/${entry.key}${String.fromCharCode('a'.charCodeAt() + key)}`
-                    fs.remove(filename, (err) => { // eslint-disable-line no-undef
+                  if (window.confirm(`Delete this photo? [${imgNodejs}${filename}]`)) { // eslint-disable-line no-undef
+                    fs.remove(`${imgNodejs}${filename}`, (err) => { // eslint-disable-line no-undef
                       if (err) return window.alert(err)
                       this.props.entryEdit(entry.key, 'img', key, pos)
                       this.hidePopup()
@@ -487,12 +474,14 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
                   }
                 }} />
               <br />
-              <img src={imgFile} />
+              <img src={
+                `${imgChrome}${filename}` // eslint-disable-line no-undef
+              } />
               <br />
-            </span>
+            </div>
           })
         }
-      </p>
+      </div>
     </fieldset>
   }.bind(this))
 }
