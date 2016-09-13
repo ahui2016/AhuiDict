@@ -1,5 +1,5 @@
-var AhuiDict = React.createClass({
-  getInitialState: function() {
+var AhuiDict = React.createClass({ // eslint-disable-line no-undef
+  getInitialState: function () {
     return {
       errorMsg: [],
       successMsg: [],
@@ -8,9 +8,9 @@ var AhuiDict = React.createClass({
     }
   },
 
-  componentDidMount: function() {
-    let request = indexedDB.open('dictDB')
-    
+  componentDidMount: function () {
+    let request = window.indexedDB.open('dictDB')
+
     request.onerror = (event) => {
       let errorMsg = this.state.errorMsg
       errorMsg.push(event.target.error)
@@ -41,11 +41,10 @@ var AhuiDict = React.createClass({
 
       transaction.onabort = (event) => {
         if (event.target.error === null) {
-          alert('(null) The transaction is not finished, is finished and\
- successfully committed, or was aborted with IDBTransaction.abort function.')
+          window.alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
         } else {
           console.log(event.target.error)
-          alert(event.target.error)
+          window.alert(event.target.error)
         }
       }
 
@@ -71,48 +70,49 @@ var AhuiDict = React.createClass({
           transaction.abort()
         }
       }
-      
+
       this.setState({ successMsg: successMsg })
     }
   },
 
-  handleClick: function() {
+  handleClick: function () {
     this.setState({ clicked: true, continueButton: 'none' })
   },
 
-  render: function() {
+  render: function () {
     return (
       <article>
         <header>
-          <h1>{packageJSON.name}</h1>
-          <p>{`${packageJSON.name} ${packageJSON.version},\
- Node ${process.versions.node}, Chrome ${process.versions.chrome},\
- Electron ${process.versions.electron}.`}</p>
+          <h1>{
+            packageJSON.name // eslint-disable-line no-undef
+          }</h1>
+          <p>{
+            `${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.` // eslint-disable-line no-undef
+          }</p>
         </header>
-        <AhuiDict.Info errorMsg={this.state.errorMsg}
-                       successMsg={this.state.successMsg}
-                       clicked={this.state.clicked} />
-        <AhuiDict.Words continueButton={this.state.continueButton}
-                        onClick={this.handleClick} />
+        <AhuiDict.Info
+          errorMsg={this.state.errorMsg} successMsg={this.state.successMsg}
+          clicked={this.state.clicked} />
+        <AhuiDict.Words
+          continueButton={this.state.continueButton} onClick={this.handleClick} />
       </article>
     )
   }
 })
 
-AhuiDict.Info = React.createClass({
-  render: function() {
+AhuiDict.Info = React.createClass({ // eslint-disable-line no-undef
+  render: function () {
     return (
       <section style={{display: this.props.clicked ? 'none' : 'block'}}>
         <h2>Loading...</h2>
         {
-          this.props.successMsg.map(function(msg, i) {
+          this.props.successMsg.map(function (msg, i) {
             return <p key={i}>{msg}</p>
           })
         }
         {
-          this.props.errorMsg.map(function(msg, i) {
-            return <p key={i}
-                      style={{color: 'red', fontWeight: 'bold'}}>{msg}</p> 
+          this.props.errorMsg.map(function (msg, i) {
+            return <p key={i} style={{color: 'red', fontWeight: 'bold'}}>{msg}</p>
           })
         }
       </section>
@@ -120,8 +120,8 @@ AhuiDict.Info = React.createClass({
   }
 })
 
-AhuiDict.Words = React.createClass({
-  getInitialState: function() {
+AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
+  getInitialState: function () {
     return {
       count: 0,
       dictionary: [],
@@ -130,14 +130,14 @@ AhuiDict.Words = React.createClass({
     }
   },
 
-  handleClick: function() {
+  handleClick: function () {
     this.props.onClick() // AhuiDict.handleClick
 
-    let request = indexedDB.open('dictDB')
-    
+    let request = window.indexedDB.open('dictDB')
+
     request.onerror = (event) => {
       console.log(event.target.error)
-      alert(event.target.error)
+      window.alert(event.target.error)
     }
 
     request.onsuccess = (event) => {
@@ -154,9 +154,9 @@ AhuiDict.Words = React.createClass({
           let entry = cursor.value
           entry.key = cursor.key
           let imgFiles = []
-          let suffix = 'a'.charCodeAt()
+          let a = 'a'.charCodeAt()
           for (let i = 0; i < entry.img; i++) {
-            suffix += i
+            let suffix = a + i
             let filename = `./images/${entry.key}${String.fromCharCode(suffix)}`
             imgFiles.push(filename)
           }
@@ -173,14 +173,14 @@ AhuiDict.Words = React.createClass({
     }
   },
 
-  entryEdit: function(key, category, item, pos) { // dictionary[pos] -> entry
+  entryEdit: function (key, category, item, pos) { // dictionary[pos] -> entry
     let dictionary = this.state.dictionary
 
-    let request = indexedDB.open('dictDB')
-    
+    let request = window.indexedDB.open('dictDB')
+
     request.onerror = (event) => {
       console.log(event.target.error)
-      alert(event.target.error)
+      window.alert(event.target.error)
     }
 
     request.onsuccess = (event) => {
@@ -189,11 +189,10 @@ AhuiDict.Words = React.createClass({
 
       transaction.onabort = (event) => {
         if (event.target.error === null) {
-          alert('(null) The transaction is not finished, is finished and\
- successfully committed, or was aborted with IDBTransaction.abort function.')
+          window.alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
         } else {
           console.log(event.target.error)
-          alert(event.target.error)
+          window.alert(event.target.error)
         }
       }
 
@@ -201,17 +200,33 @@ AhuiDict.Words = React.createClass({
       let requestGet = store.get(key)
       requestGet.onsuccess = (event) => {
         let entry = event.target.result
-        if (typeof item === 'string') {
-          if (!entry[category]) {
-            entry[category] = []
+        if (category === 'img') {
+          switch (typeof item) {
+            case 'number':
+              entry[category] = entry[category] - 1
+              dictionary[pos].imgFiles.splice(item, 1)
+              break
+            case 'string':
+              if (!entry[category]) entry[category] = 0
+              entry[category] = entry[category] + 1
+              dictionary[pos].imgFiles.push(item)
+              break
           }
-          entry[category].push(item)
-        } else if (typeof item === 'number') {
-          entry[category].splice(item, 1)
-        } else { // item -> [updateStart, updateValue]
-          let updateStart = item[0]
-          let updateValue = item[1]
-          entry[category].splice(updateStart, 1, updateValue)
+        } else { // category !== 'img'
+          switch (typeof item) {
+            case 'string':
+              if (!entry[category]) entry[category] = []
+              entry[category].push(item)
+              break
+            case 'number':
+              entry[category].splice(item, 1)
+              break
+            case 'object': // item -> [updateStart, updateValue]
+              let updateStart = item[0]
+              let updateValue = item[1]
+              entry[category].splice(updateStart, 1, updateValue)
+              break
+          }
         }
 
         let requestUpdate = store.put(entry, key)
@@ -223,26 +238,24 @@ AhuiDict.Words = React.createClass({
     }
   },
 
-  render: function() {  
+  render: function () {
     return (
       <section>
-        <input type='button'
-               value='Continue'
-               style={{display: this.props.continueButton}}
-               onClick={this.handleClick} />
+        <input type='button' value='Continue' onClick={this.handleClick}
+          style={{display: this.props.continueButton}} />
         <h2>{this.state.count
           ? `${this.state.count} entries in the dictionary.`
           : ''}</h2>
         <AhuiDict.Words.Fieldset
-            dictionary={this.state.dictionary} entryEdit={this.entryEdit} />
+          dictionary={this.state.dictionary} entryEdit={this.entryEdit} />
         <p>{this.state.done ? 'All words has been listed out.' : ''}</p>
       </section>
     )
   }
 })
 
-AhuiDict.Words.Fieldset = React.createClass({
-  getInitialState: function() {
+AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
+  getInitialState: function () {
     return {
       popup: '', // Use to toggle `copy` and `delete` buttons.
       edit: '',
@@ -256,7 +269,7 @@ AhuiDict.Words.Fieldset = React.createClass({
     }
   },
 
-  popup: function(id) {
+  popup: function (id) {
     if (id.indexOf(this.state.edit) > -1) { // popup in the same fieldset
       this.setState({ popup: id })
     } else {                                // popup in another fieldset
@@ -264,14 +277,15 @@ AhuiDict.Words.Fieldset = React.createClass({
     }
   },
 
-  copyToClip: function(item) {
-    clipboard.writeText(item)
+  hidePopup: function () {
+    this.setState({popup: '', notes: ''})
   },
 
-  entryEdit: function(key, category, item, pos) {
+  entryEdit: function (key, category, item, pos) {
     if (typeof item === 'number') {
-      if (confirm(`Delete【${this.props.dictionary[pos][category][item]}】?`)) {
-        this.setState({popup: '', notes: ''})
+      let theWord = this.props.dictionary[pos][category][item]
+      if (window.confirm(`Delete【${theWord}】?`)) {
+        this.hidePopup()
         this.props.entryEdit(key, category, item, pos)
       }
     } else { // item is an array or a HTML-Element
@@ -281,11 +295,11 @@ AhuiDict.Words.Fieldset = React.createClass({
         this.props.entryEdit(key, category, item.value, pos)
         item.value = ''
       }
-      this.setState({popup: '', notes: ''})
-    } 
+      this.hidePopup()
+    }
   },
 
-  jpCnEn: function(entry, category, pKey, pos) {
+  jpCnEn: function (entry, category, pKey, pos) {
     let refId = `${category}-${entry.key}`
     return (
       <p key={pKey} className={category} style={{display:
@@ -293,7 +307,7 @@ AhuiDict.Words.Fieldset = React.createClass({
           ? 'block' : 'none'}}>
         <strong>{category === 'tags' ? 'Tags' : category.toUpperCase()}</strong>:
         {
-          entry[category].map(function(item, i) {
+          entry[category].map(function (item, i) {
             return <span key={i}>
               <code onClick={
                 this.popup.bind(
@@ -302,7 +316,7 @@ AhuiDict.Words.Fieldset = React.createClass({
                 this.state.popup === `entry-${entry.key}-${category}-${i}`
                 ? 'inline' : 'none'}}>
                 <input type='button' value='copy' onClick={() => {
-                  clipboard.writeText(item)
+                  clipboard.writeText(item) // eslint-disable-line no-undef
                 }} />
                 <input type='button' value='delete' onClick={
                   this.entryEdit.bind(this, entry.key, category, i, pos)} />
@@ -312,10 +326,14 @@ AhuiDict.Words.Fieldset = React.createClass({
         }
         <span style={{display: this.state.edit === `entry-${entry.key}`
                 ? 'inline' : 'none'}}>
-          <input type='text' ref={(ref) => this[refId] = ref}
-            onKeyPress={(event) => {if (event.key === 'Enter') {
-              this.entryEdit(entry.key, category, this[refId], pos)
-            }}} />
+          <input type='text'
+            ref={
+              (ref) => this[refId] = ref // eslint-disable-line no-return-assign
+            }
+            onKeyPress={(event) => {
+              if (event.key === 'Enter') {
+                this.entryEdit(entry.key, category, this[refId], pos)
+              } }} />
           <input type='button' value='add' onClick={
             this.entryEdit.bind(this, entry.key, category, this[refId], pos)} />
         </span>
@@ -323,7 +341,7 @@ AhuiDict.Words.Fieldset = React.createClass({
     )
   },
 
-  showPic: function(pic) {
+  showPic: function (pic) {
     let showPic = this.state.showPic
     showPic.add(pic)
     let showButtons = this.state.showButtons
@@ -331,7 +349,7 @@ AhuiDict.Words.Fieldset = React.createClass({
     this.setState({ showButtons: showButtons, showPic: showPic })
   },
 
-  togglePic: function(pic) {
+  togglePic: function (pic) {
     let showPic = this.state.showPic
     if (showPic.has(pic)) {
       showPic.delete(pic)
@@ -341,16 +359,15 @@ AhuiDict.Words.Fieldset = React.createClass({
     this.setState({ showPic: showPic })
   },
 
-  ignoreDrag: function(event) {
+  ignoreDrag: function (event) {
     event.stopPropagation()
     event.preventDefault()
   },
 
-  render: function() {
-    return (
-<div>
+  render: function () {
+    return (<div>
 {
-  this.props.dictionary.map(function(entry, pos) { /* dictionary[pos] -> entry */
+  this.props.dictionary.map(function (entry, pos) { /* dictionary[pos] -> entry */
     let entryId = `entry-${entry.key}`
     return <fieldset key={entry.key}>
       <legend>
@@ -360,7 +377,7 @@ AhuiDict.Words.Fieldset = React.createClass({
             this.setState({edit: '', popup: '', notes: ''})
           } else {
             this.setState({edit: entryId, popup: '', notes: ''})
-          }}} />
+          } }} />
       </legend>
       {
         ['jp', 'cn', 'en', 'tags'].map((category, key) => {
@@ -373,7 +390,9 @@ AhuiDict.Words.Fieldset = React.createClass({
         <strong>Notes</strong>:
         <span style={{display: this.state.edit === entryId ? 'inline' : 'none'}}>
           <textarea rows='2' cols='50'
-            ref={(ref) => this[`notes-${entry.key}`] = ref} />
+            ref={
+              (ref) => this[`notes-${entry.key}`] = ref // eslint-disable-line no-return-assign
+            } />
           <input type='button' value='add' onClick={this.entryEdit.bind(
             this, entry.key, 'notes', this[`notes-${entry.key}`], pos)} />
         </span>
@@ -385,7 +404,8 @@ AhuiDict.Words.Fieldset = React.createClass({
       <input type='radio' value={noteId} checked={this.state.notes === noteId}
         onChange={() => {
           this[noteId].value = item
-          this.setState({notes: noteId})}}
+          this.setState({notes: noteId})
+        }}
         style={{display: this.state.edit === entryId ? 'inline' : 'none'}} />
       <span style={{display: this.state.notes !== noteId ? 'inline' : 'none'}}>
         {item}
@@ -393,8 +413,10 @@ AhuiDict.Words.Fieldset = React.createClass({
       <span style={{display:
         this.state.notes === noteId && this.state.edit === entryId
         ? 'inline' : 'none'}}>
-        <textarea rows='3' cols='50' defaultValue={item} ref={
-          (ref) => this[noteId] = ref} />
+        <textarea rows='3' cols='50' defaultValue={item}
+          ref={
+            (ref) => this[noteId] = ref // eslint-disable-line no-return-assign
+          } />
         <input type='button' value='delete' onClick={
           this.entryEdit.bind(this, entry.key, 'notes', i, pos)} />
         <input type='button' value='update' onClick={this.entryEdit.bind(
@@ -416,16 +438,6 @@ AhuiDict.Words.Fieldset = React.createClass({
           style={{display:
             entry.img && !this.state.showButtons.has(`showPic-${entry.key}`)
               ? 'inline' : 'none'}} />
-        <div id='dropBox' onDragEnter={this.ignoreDrag} onDragOver={this.ignoreDrag}
-          onDrop={(event) => {
-            event.stopPropagation()
-            event.preventDefault()
-            let file = event.dataTransfer.files[0]
-            let reader = new FileReader()
-            console.log(file.path)
-          }}>
-          <div>Drop your image here...</div>
-        </div>
         <input
           type='button'
           value={this.state.showPic.has(`showPic-${entry.key}`)
@@ -434,21 +446,59 @@ AhuiDict.Words.Fieldset = React.createClass({
           style={{display:
             this.state.showButtons.has(`showPic-${entry.key}`)
               ? 'inline' : 'none'}} />
+        <div id='dropBox' onDragEnter={this.ignoreDrag} onDragOver={this.ignoreDrag}
+          style={{display: this.state.edit === entryId ? 'block' : 'none'}}
+          onDrop={(event) => {
+            event.stopPropagation()
+            event.preventDefault()
+            let suffix = 'a'.charCodeAt()
+            if (!entry.img) entry.img = 0
+            suffix += entry.img
+            let dest = `./app/images/${entry.key}${String.fromCharCode(suffix)}`
+            let src = event.dataTransfer.files[0].path
+            fs.copy(src, dest, (err) => { // eslint-disable-line no-undef
+              if (err) return window.alert(err)
+              this.props.entryEdit(entry.key, 'img',
+                `./images/${entry.key}${String.fromCharCode(suffix)}`, pos)
+              this.hidePopup()
+            })
+          }}>
+          <div>Drop your image here...</div>
+        </div>
       </div>
       <p style={{display: this.state.showPic.has(`showPic-${entry.key}`)
             ? 'block' : 'none'}}>
         {
-          entry.imgFiles.map(function(imgFile, key) {
-            return <img key={key} src={imgFile}  />
+          entry.imgFiles.map((imgFile, key) => {
+            return <span key={key}>
+              <input type='button' value='↓ delete ↓'
+                style={{
+                  display: this.state.edit === entryId ? 'inline' : 'none',
+                  marginTop: '10px'
+                }}
+                onClick={() => {
+                  if (window.confirm('Delete this photo?')) {
+                    let filename = `./app/images/${entry.key}${String.fromCharCode('a'.charCodeAt() + key)}`
+                    fs.remove(filename, (err) => { // eslint-disable-line no-undef
+                      if (err) return window.alert(err)
+                      this.props.entryEdit(entry.key, 'img', key, pos)
+                      this.hidePopup()
+                    })
+                  }
+                }} />
+              <br />
+              <img src={imgFile} />
+              <br />
+            </span>
           })
         }
       </p>
     </fieldset>
   }.bind(this))
 }
-</div>
+    </div>
     )
   }
 })
 
-ReactDOM.render(<AhuiDict />, $('main'))
+ReactDOM.render(<AhuiDict />, $('main')) // eslint-disable-line no-undef
