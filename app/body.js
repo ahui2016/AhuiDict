@@ -1,3 +1,9 @@
+const {clipboard} = require('electron')
+const fs = require('fs-extra')
+const imgNodejs = './app/images/'
+const imgChrome = './images/'
+const Categories = ['jp', 'cn', 'en', 'tags', 'notes', 'img']
+
 var AhuiDict = React.createClass({ // eslint-disable-line no-undef
   getInitialState: function () {
     return {
@@ -62,13 +68,13 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         if (count === len) {
           successMsg.push('Quantity checking ... OK!')
           successMsg.push('Click the "Continue" button to display all words.')
-          this.setState({ continueButton: 'block' })
         } else {
           let errorMsg = this.state.errorMsg
           errorMsg.push(event.target.error)
           this.setState({ errorMsg: errorMsg })
-          transaction.abort()
+          // transaction.abort()
         }
+        this.setState({ continueButton: 'block' })
       }
 
       this.setState({ successMsg: successMsg })
@@ -153,7 +159,7 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
         if (cursor) {
           let entry = cursor.value
           entry.key = cursor.key
-          ;['jp', 'cn', 'en', 'tags', 'notes', 'img'].forEach((category) => {
+          Categories.forEach((category) => {
             if (!entry[category]) entry[category] = []
           })
           dictionary.push(entry)
@@ -189,32 +195,48 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
       }
 
       let store = transaction.objectStore('dictStore')
-      let requestGet = store.get(key)
-      requestGet.onsuccess = (event) => {
-        let entry = event.target.result
-        switch (typeof item) {
-          case 'string':
-            if (!entry[category]) entry[category] = []
-            if (category === 'img') {
-              entry[category].unshift(item)
-            } else {
-              entry[category].push(item)
-            }
-            break
-          case 'number':
-            entry[category].splice(item, 1)
-            break
-          case 'object': // item -> [updateStart, updateValue]
-            let updateStart = item[0]
-            let updateValue = item[1]
-            entry[category].splice(updateStart, 1, updateValue)
-            break
+      if (category === 'ADD') {
+        let requestAdd = store.add(item)
+        requestAdd.onsuccess = () => {
+          item.key = requestAdd.result
+          dictionary.unshift(item)
+          this.setState({dictionary: dictionary})
+          this.refs.Fieldset.handleAddNewEntry(`entry-${item.key}`)
         }
+      } else if (category === 'DELETE') {
+        let requestDel = store.delete(key)
+        requestDel.onsuccess = () => {
+          dictionary.splice(pos, 1)
+          this.setState({dictionary: dictionary})
+        }
+      } else {
+        let requestGet = store.get(key)
+        requestGet.onsuccess = (event) => {
+          let entry = event.target.result
+          switch (typeof item) {
+            case 'string':
+              if (!entry[category]) entry[category] = []
+              if (category === 'img') {
+                entry[category].unshift(item)
+              } else {
+                entry[category].push(item)
+              }
+              break
+            case 'number':
+              entry[category].splice(item, 1)
+              break
+            case 'object': // item -> [updateStart, updateValue]
+              let updateStart = item[0]
+              let updateValue = item[1]
+              entry[category].splice(updateStart, 1, updateValue)
+              break
+          }
 
-        let requestUpdate = store.put(entry, key)
-        requestUpdate.onsuccess = () => {
-          dictionary[pos][category] = entry[category]
-          this.setState({ dictionary: dictionary })
+          let requestUpdate = store.put(entry, key)
+          requestUpdate.onsuccess = () => {
+            dictionary[pos][category] = entry[category]
+            this.setState({ dictionary: dictionary })
+          }
         }
       }
     }
@@ -225,11 +247,26 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
       <section>
         <input type='button' value='Continue' onClick={this.handleClick}
           style={{display: this.props.continueButton}} />
-        <h2>{this.state.count
+        <h2 style={{display: 'inline'}}>{
+          this.state.count
           ? `${this.state.count} entries in the dictionary.`
-          : ''}</h2>
-        <AhuiDict.Words.Fieldset
-          dictionary={this.state.dictionary} entryEdit={this.entryEdit} />
+          : ''
+        }</h2>
+        {
+          this.state.done
+          ? <span>
+            <input type='button' value='Add' onClick={() => {
+              let newEntry = {}
+              Categories.forEach((category) => {
+                newEntry[category] = []
+              })
+              this.entryEdit(null, 'ADD', newEntry, null)
+            }} /> an new Entry.
+          </span>
+          : ''
+        }
+        <AhuiDict.Words.Fieldset ref='Fieldset' entryEdit={this.entryEdit}
+          dictionary={this.state.dictionary} />
         <p>{this.state.done ? 'All words has been listed out.' : ''}</p>
       </section>
     )
@@ -249,6 +286,10 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
       // at the same time, show the toggle button.
       showButtons: new Set()
     }
+  },
+
+  handleAddNewEntry: function (entryKey) {
+    this.setState({edit: entryKey})
   },
 
   popup: function (id) {
@@ -300,7 +341,7 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
                 this.state.popup === `entry-${entry.key}-${category}-${i}`
                 ? 'inline' : 'none'}}>
                 <input type='button' value='copy' onClick={() => {
-                  clipboard.writeText(item) // eslint-disable-line no-undef
+                  clipboard.writeText(item)
                 }} />
                 <input type='button' value='delete' onClick={
                   this.entryEdit.bind(this, entry.key, category, i, pos)} />
@@ -355,15 +396,24 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
   this.props.dictionary.map(function (entry, pos) { /* dictionary[pos] -> entry */
     let imgCount = entry.img.length
     let entryId = `entry-${entry.key}`
+    let editMode = {display: this.state.edit === entryId ? 'inline' : 'none'}
     return <fieldset key={entry.key}>
       <legend>
         {entry.key}
-        <input type='button' value='Edit' onClick={(event) => {
-          if (this.state.edit === entryId) {
-            this.setState({edit: '', popup: '', notes: ''})
-          } else {
-            this.setState({edit: entryId, popup: '', notes: ''})
-          } }} />
+        <span>
+          <input type='button' value='Edit' onClick={() => {
+            if (this.state.edit === entryId) {
+              this.setState({edit: '', popup: '', notes: ''})
+            } else {
+              this.setState({edit: entryId, popup: '', notes: ''})
+            } }} />
+          <input type='button' value='Delete' style={editMode}
+            onClick={() => {
+              if (window.confirm(`Delete ** entry ${entry.key} ** ?`)) {
+                this.props.entryEdit(entry.key, 'DELETE', null, pos)
+              }
+            }} />
+        </span>
       </legend>
       {
         ['jp', 'cn', 'en', 'tags'].map((category, key) => {
@@ -374,7 +424,7 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
         entry.notes.length > 0 || this.state.edit === entryId
         ? 'block' : 'none'}}>
         <strong>Notes</strong>:
-        <span style={{display: this.state.edit === entryId ? 'inline' : 'none'}}>
+        <span style={editMode}>
           <textarea rows='2' cols='50'
             ref={
               (ref) => this[`notes-${entry.key}`] = ref // eslint-disable-line no-return-assign
@@ -392,7 +442,7 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
           this[noteId].value = item
           this.setState({notes: noteId})
         }}
-        style={{display: this.state.edit === entryId ? 'inline' : 'none'}} />
+        style={editMode} />
       <span style={{display: this.state.notes !== noteId ? 'inline' : 'none'}}>
         {item}
       </span>
@@ -445,10 +495,10 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
 Acceptable file types: .jpg .png .gif etc.`)
             } else {
               let suffix = `.${file.type.match(/\/(.+)/)[1]}`
-              filename = `${Date.now()}${suffix}`
+              filename = `${entry.key}-${Date.now()}${suffix}`
             }
-            let dest = `${imgNodejs}${filename}` // eslint-disable-line no-undef
-            fs.copy(src, dest, (err) => { // eslint-disable-line no-undef
+            let dest = `${imgNodejs}${filename}`
+            fs.copy(src, dest, (err) => {
               if (err) return window.alert(err)
               this.props.entryEdit(entry.key, 'img', filename, pos)
               this.hidePopup()
@@ -462,11 +512,10 @@ Acceptable file types: .jpg .png .gif etc.`)
         {
           entry.img.map((filename, key) => {
             return <div key={key} className='image'>
-              <input type='button' value='↓ delete ↓'
-                style={{display: this.state.edit === entryId ? 'inline' : 'none'}}
+              <input type='button' value='↓ delete ↓' style={editMode}
                 onClick={() => {
-                  if (window.confirm(`Delete this photo? [${imgNodejs}${filename}]`)) { // eslint-disable-line no-undef
-                    fs.remove(`${imgNodejs}${filename}`, (err) => { // eslint-disable-line no-undef
+                  if (window.confirm(`Delete this photo? [${imgNodejs}${filename}]`)) {
+                    fs.remove(`${imgNodejs}${filename}`, (err) => {
                       if (err) return window.alert(err)
                       this.props.entryEdit(entry.key, 'img', key, pos)
                       this.hidePopup()
@@ -475,7 +524,7 @@ Acceptable file types: .jpg .png .gif etc.`)
                 }} />
               <br />
               <img src={
-                `${imgChrome}${filename}` // eslint-disable-line no-undef
+                `${imgChrome}${filename}`
               } />
               <br />
             </div>
