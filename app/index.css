@@ -1,6 +1,7 @@
 body {
   margin-left: 50px;
   margin-right: 100px;
+  zoom: 125%;
 }
 
 #words {
@@ -65,4 +66,14 @@ fieldset textarea {
 
 .image {
   margin-top: 10px;
+}
+
+#searchArea {
+  margin-top: 50px;
+  margin-left: 40px;
+}
+
+table {
+  margin-top: 10px;
+  margin-left: 10px;
 }

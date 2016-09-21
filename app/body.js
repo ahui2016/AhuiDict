@@ -3,6 +3,7 @@ const fs = require('fs-extra')
 const imgNodejs = './app/images/'
 const imgChrome = './images/'
 const Categories = ['jp', 'cn', 'en', 'tags', 'notes', 'img']
+const MAX = 10
 
 var AhuiDict = React.createClass({ // eslint-disable-line no-undef
   getInitialState: function () {
@@ -10,7 +11,8 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       errorMsg: [],
       successMsg: [],
       continueButton: 'none',
-      clicked: false // Use to hide AhuiDict.Info
+      clicked: false, // Use to hide AhuiDict.Info
+      dbSize: 0
     }
   },
 
@@ -21,20 +23,6 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       let errorMsg = this.state.errorMsg
       errorMsg.push(event.target.error)
       this.setState({ errorMsg: errorMsg })
-    }
-
-    request.onupgradeneeded = (event) => {
-      let db = event.target.result
-      let store = db.createObjectStore('dictStore', {autoIncrement: true})
-      store.createIndex('jp', 'jp', {unique: false, multiEntry: true})
-      store.createIndex('cn', 'cn', {unique: false, multiEntry: true})
-      store.createIndex('en', 'en', {unique: false, multiEntry: true})
-
-      let successMsg = this.state.successMsg
-      successMsg.push('on upgrade needed:')
-      successMsg.push(
-        `oldVersion: ${event.oldVersion}, newVersion: ${event.newVersion}`)
-      this.setState({ successMsg: successMsg })
     }
 
     request.onsuccess = (event) => {
@@ -61,6 +49,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         let count = requestCount.result
         const dbJSON = require('./database.json')
         let len = Object.keys(dbJSON).length
+        this.setState({dbSize: len})
         successMsg.push('Open objectStore ... successful')
         successMsg.push(`How many records in   indexedDB  : ${count}`)
         successMsg.push(`How many records in database.json: ${len}`)
@@ -71,6 +60,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         } else {
           let errorMsg = this.state.errorMsg
           errorMsg.push(event.target.error)
+          errorMsg.push('Quantity checking ... NG!')
           this.setState({ errorMsg: errorMsg })
           // transaction.abort()
         }
@@ -95,6 +85,11 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
           <p>{
             `${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.` // eslint-disable-line no-undef
           }</p>
+          {
+            this.state.clicked
+            ? <p>{`${this.state.dbSize} entries in database.`}</p>
+            : ''
+          }
         </header>
         <AhuiDict.Info
           errorMsg={this.state.errorMsg} successMsg={this.state.successMsg}
@@ -130,15 +125,77 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
   getInitialState: function () {
     return {
       count: 0,
-      dictionary: [],
-      done: false, // Use to show 'All words has been listed out.'
+      searchResult: [],
+      done: false, // Set to true when the search result is shown.
       showPic: new Set() // Send to AhuiDict.Words.Fieldset
     }
   },
 
   handleClick: function () {
     this.props.onClick() // AhuiDict.handleClick
+    this.refs.Search.handleContinue()
+  },
 
+  handleSearch: function (pattern, opt, categories) {
+    let request = window.indexedDB.open('dictDB')
+
+    request.onerror = (event) => {
+      console.log(event.target.error)
+      window.alert(event.target.error)
+    }
+
+    request.onsuccess = (event) => {
+      let db = event.target.result
+      let transaction = db.transaction('dictStore')
+
+      transaction.onabort = (event) => {
+        console.log(`Error(handleSearch): ${event.target.error}`)
+      }
+
+      transaction.oncomplete = (event) => {
+        console.log(resultKeys)
+      }
+
+      let store = transaction.objectStore('dictStore')
+      let searchResult = []
+      let resultKeys = new Set()
+      let keyRange // initialize
+      switch (opt) {
+        case 'begin':
+          keyRange = window.IDBKeyRange.lowerBound(pattern)
+          break
+        case 'exactly':
+          keyRange = window.IDBKeyRange.only(pattern)
+          break
+      }
+      categories.forEach((category) => {
+        let showResult = () => {
+          // this.setState({ searchResult: searchResult, done: true })
+          console.log(resultKeys)
+          if (resultKeys.size === 0) console.log(`${category}: Not found.`)
+        }
+
+        let index = store.index(category.toLowerCase())
+        index.openCursor(keyRange).onsuccess = (event) => {
+          let cursor = event.target.result
+          if (cursor) {
+            let entry = cursor.value
+            entry.key = cursor.primaryKey
+            if (opt !== 'begin' || cursor.key.startsWith(pattern)) {
+              resultKeys.add(entry.key)
+            }
+            if (resultKeys.size < MAX) {
+              cursor.continue()
+            }
+          } else {
+            console.log(`${category} done.`)
+          }
+        }
+      })
+    }
+  },
+
+  showAllEntries: function () {
     let request = window.indexedDB.open('dictDB')
 
     request.onerror = (event) => {
@@ -153,7 +210,7 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
       requestCount.onsuccess = () => {
         this.setState({ count: requestCount.result })
       }
-      let dictionary = []
+      let searchResult = []
       store.openCursor().onsuccess = (event) => {
         let cursor = event.target.result
         if (cursor) {
@@ -162,17 +219,21 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
           Categories.forEach((category) => {
             if (!entry[category]) entry[category] = []
           })
-          dictionary.push(entry)
-          cursor.continue()
+          searchResult.push(entry)
+          if (searchResult.length < MAX) {
+            cursor.continue()
+          } else {
+            this.setState({ searchResult: searchResult, done: true })
+          }
         } else {
-          this.setState({ dictionary: dictionary, done: true })
+          this.setState({ searchResult: searchResult, done: true })
         }
       }
     }
   },
 
-  entryEdit: function (key, category, item, pos) { // dictionary[pos] -> entry
-    let dictionary = this.state.dictionary
+  entryEdit: function (key, category, item, pos) { // searchResult[pos] -> entry
+    let searchResult = this.state.searchResult
 
     let request = window.indexedDB.open('dictDB')
 
@@ -199,15 +260,15 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
         let requestAdd = store.add(item)
         requestAdd.onsuccess = () => {
           item.key = requestAdd.result
-          dictionary.unshift(item)
-          this.setState({dictionary: dictionary})
+          searchResult.unshift(item)
+          this.setState({searchResult: searchResult})
           this.refs.Fieldset.handleAddNewEntry(`entry-${item.key}`)
         }
       } else if (category === 'DELETE') {
         let requestDel = store.delete(key)
         requestDel.onsuccess = () => {
-          dictionary.splice(pos, 1)
-          this.setState({dictionary: dictionary})
+          searchResult.splice(pos, 1)
+          this.setState({searchResult: searchResult})
         }
       } else {
         let requestGet = store.get(key)
@@ -234,8 +295,8 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
 
           let requestUpdate = store.put(entry, key)
           requestUpdate.onsuccess = () => {
-            dictionary[pos][category] = entry[category]
-            this.setState({ dictionary: dictionary })
+            searchResult[pos][category] = entry[category]
+            this.setState({ searchResult: searchResult })
           }
         }
       }
@@ -249,7 +310,7 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
           style={{display: this.props.continueButton}} />
         <h2 style={{display: 'inline'}}>{
           this.state.count
-          ? `${this.state.count} entries in the dictionary.`
+          ? `Found ${this.state.count} entries.`
           : ''
         }</h2>
         {
@@ -265,11 +326,72 @@ AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
           </span>
           : ''
         }
+        <AhuiDict.Words.Search ref='Search' onSearch={this.handleSearch} />
         <AhuiDict.Words.Fieldset ref='Fieldset' entryEdit={this.entryEdit}
-          dictionary={this.state.dictionary} />
+          searchResult={this.state.searchResult} />
         <p>{this.state.done ? 'All words has been listed out.' : ''}</p>
       </section>
     )
+  }
+})
+
+AhuiDict.Words.Search = React.createClass({ // eslint-disable-line no-undef
+  getInitialState: function () {
+    return {
+      checkboxes: new Set(['JP', 'CN', 'EN']),
+      opt: 'exactly',
+      continue: false
+    }
+  },
+
+  handleContinue: function () {
+    this.setState({continue: true})
+  },
+
+  render: function () {
+    return (<div id='searchArea' style={{display: this.state.continue
+      ? 'block' : 'none'}}>
+
+      <input type='search' size='50' ref={
+        (ref) => this.search = ref // eslint-disable-line no-return-assign
+      } />
+      <input type='button' value='Search' onClick={() => {
+        this.props.onSearch(
+          this.search.value, this.state.opt, this.state.checkboxes)
+      }} />
+
+      <table><tbody><tr>
+      {
+        ['JP', 'CN', 'EN', 'Tags', 'Notes'].map((category) => {
+          return <td key={category}><label>
+            <input type='checkbox' checked={this.state.checkboxes.has(category)}
+              onChange={() => {
+                let checkboxes = this.state.checkboxes
+                if (checkboxes.has(category)) {
+                  checkboxes.delete(category)
+                } else {
+                  checkboxes.add(category)
+                }
+                this.setState({checkboxes: checkboxes})
+              }} />
+            {category}
+          </label></td>
+        })
+      }
+      </tr><tr>
+      {
+        ['exactly', 'begin', 'end', 'contain', 'RegExp'].map((opt) => {
+          return <td key={opt}><label>
+            <input type='radio' checked={this.state.opt === opt}
+              onChange={() => {
+                this.setState({opt: opt})
+              }} />
+            {opt}
+          </label></td>
+        })
+      }
+      </tr></tbody></table>
+    </div>)
   }
 })
 
@@ -307,7 +429,7 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
   entryEdit: function (key, category, item, pos) {
     switch (typeof item) {
       case 'number':
-        if (window.confirm(`Delete 【${this.props.dictionary[pos][category][item]}】?`)) {
+        if (window.confirm(`Delete 【${this.props.searchResult[pos][category][item]}】?`)) {
           this.hidePopup()
           this.props.entryEdit(key, category, item, pos)
         }
@@ -393,7 +515,7 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
   render: function () {
     return (<div>
 {
-  this.props.dictionary.map(function (entry, pos) { /* dictionary[pos] -> entry */
+  this.props.searchResult.map(function (entry, pos) { // searchResult[pos] -> entry
     let imgCount = entry.img.length
     let entryId = `entry-${entry.key}`
     let editMode = {display: this.state.edit === entryId ? 'inline' : 'none'}
@@ -401,12 +523,15 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
       <legend>
         {entry.key}
         <span>
-          <input type='button' value='Edit' onClick={() => {
-            if (this.state.edit === entryId) {
-              this.setState({edit: '', popup: '', notes: ''})
-            } else {
-              this.setState({edit: entryId, popup: '', notes: ''})
-            } }} />
+          <input type='button'
+            value={this.state.edit === entryId ? 'Done' : 'Edit'}
+            onClick={() => {
+              if (this.state.edit === entryId) {
+                this.setState({edit: '', popup: '', notes: ''})
+              } else {
+                this.setState({edit: entryId, popup: '', notes: ''})
+              }
+            }} />
           <input type='button' value='Delete' style={editMode}
             onClick={() => {
               if (window.confirm(`Delete ** entry ${entry.key} ** ?`)) {

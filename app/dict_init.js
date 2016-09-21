@@ -33,6 +33,7 @@ request.onupgradeneeded = (event) => {
   store.createIndex('cn', 'cn', {unique: false, multiEntry: true})
   store.createIndex('en', 'en', {unique: false, multiEntry: true})
   store.createIndex('tags', 'tags', {unique: false, multiEntry: true})
+  store.createIndex('notes', 'notes', {unique: false, multiEntry: true})
   $('#info').appendChild($P('on upgrade needed:'))
   $('#info').appendChild($P(`oldVersion: ${event.oldVersion}, newVersion: ${event.newVersion}`))
 }
