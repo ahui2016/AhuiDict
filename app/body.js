@@ -5,400 +5,20 @@ const imgChrome = './images/'
 const Categories = ['jp', 'cn', 'en', 'tags', 'notes', 'img']
 const MAX = 10
 
+const Datastore = require('nedb')
+const db = new Datastore({
+  filename: './app/database.nedb',
+  timestampData: true
+})
+
 var AhuiDict = React.createClass({ // eslint-disable-line no-undef
   getInitialState: function () {
     return {
-      errorMsg: [],
-      successMsg: [],
-      continueButton: 'none',
-      clicked: false, // Use to hide AhuiDict.Info
-      dbSize: 0
-    }
-  },
-
-  componentDidMount: function () {
-    let request = window.indexedDB.open('dictDB')
-
-    request.onerror = (event) => {
-      let errorMsg = this.state.errorMsg
-      errorMsg.push(event.target.error)
-      this.setState({ errorMsg: errorMsg })
-    }
-
-    request.onsuccess = (event) => {
-      let db = event.target.result
-      let successMsg = this.state.successMsg
-      successMsg.push('on success:')
-      successMsg.push(`current version: ${db.version}`)
-
-      let transaction = db.transaction('dictStore', 'readonly')
-
-      transaction.onabort = (event) => {
-        if (event.target.error === null) {
-          window.alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
-        } else {
-          console.log(event.target.error)
-          window.alert(event.target.error)
-        }
-      }
-
-      let store = transaction.objectStore('dictStore')
-      let requestCount = store.count()
-
-      requestCount.onsuccess = () => {
-        let count = requestCount.result
-        const dbJSON = require('./database.json')
-        let len = Object.keys(dbJSON).length
-        this.setState({dbSize: len})
-        successMsg.push('Open objectStore ... successful')
-        successMsg.push(`How many records in   indexedDB  : ${count}`)
-        successMsg.push(`How many records in database.json: ${len}`)
-
-        if (count === len) {
-          successMsg.push('Quantity checking ... OK!')
-          successMsg.push('Click the "Continue" button to display all words.')
-        } else {
-          let errorMsg = this.state.errorMsg
-          errorMsg.push(event.target.error)
-          errorMsg.push('Quantity checking ... NG!')
-          this.setState({ errorMsg: errorMsg })
-          // transaction.abort()
-        }
-        this.setState({ continueButton: 'block' })
-      }
-
-      this.setState({ successMsg: successMsg })
-    }
-  },
-
-  handleClick: function () {
-    this.setState({ clicked: true, continueButton: 'none' })
-  },
-
-  render: function () {
-    return (
-      <article>
-        <header>
-          <h1>{
-            packageJSON.name // eslint-disable-line no-undef
-          }</h1>
-          <p>{
-            `${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.` // eslint-disable-line no-undef
-          }</p>
-          {
-            this.state.clicked
-            ? <p>{`${this.state.dbSize} entries in database.`}</p>
-            : ''
-          }
-        </header>
-        <AhuiDict.Info
-          errorMsg={this.state.errorMsg} successMsg={this.state.successMsg}
-          clicked={this.state.clicked} />
-        <AhuiDict.Words
-          continueButton={this.state.continueButton} onClick={this.handleClick} />
-      </article>
-    )
-  }
-})
-
-AhuiDict.Info = React.createClass({ // eslint-disable-line no-undef
-  render: function () {
-    return (
-      <section style={{display: this.props.clicked ? 'none' : 'block'}}>
-        <h2>Loading...</h2>
-        {
-          this.props.successMsg.map(function (msg, i) {
-            return <p key={i}>{msg}</p>
-          })
-        }
-        {
-          this.props.errorMsg.map(function (msg, i) {
-            return <p key={i} style={{color: 'red', fontWeight: 'bold'}}>{msg}</p>
-          })
-        }
-      </section>
-    )
-  }
-})
-
-AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
-  getInitialState: function () {
-    return {
-      count: 0,
-      searchResult: [],
-      done: false, // Set to true when the search result is shown.
-      showPic: new Set() // Send to AhuiDict.Words.Fieldset
-    }
-  },
-
-  handleClick: function () {
-    this.props.onClick() // AhuiDict.handleClick
-    this.refs.Search.handleContinue()
-  },
-
-  handleSearch: function (pattern, opt, categories) {
-    let request = window.indexedDB.open('dictDB')
-
-    request.onerror = (event) => {
-      console.log(event.target.error)
-      window.alert(event.target.error)
-    }
-
-    request.onsuccess = (event) => {
-      let db = event.target.result
-      let transaction = db.transaction('dictStore')
-
-      transaction.onabort = (event) => {
-        console.log(`Error(handleSearch): ${event.target.error}`)
-      }
-
-      transaction.oncomplete = (event) => {
-        console.log(resultKeys)
-      }
-
-      let store = transaction.objectStore('dictStore')
-      let searchResult = []
-      let resultKeys = new Set()
-      let keyRange // initialize
-      switch (opt) {
-        case 'begin':
-          keyRange = window.IDBKeyRange.lowerBound(pattern)
-          break
-        case 'exactly':
-          keyRange = window.IDBKeyRange.only(pattern)
-          break
-      }
-      categories.forEach((category) => {
-        let showResult = () => {
-          // this.setState({ searchResult: searchResult, done: true })
-          console.log(resultKeys)
-          if (resultKeys.size === 0) console.log(`${category}: Not found.`)
-        }
-
-        let index = store.index(category.toLowerCase())
-        index.openCursor(keyRange).onsuccess = (event) => {
-          let cursor = event.target.result
-          if (cursor) {
-            let entry = cursor.value
-            entry.key = cursor.primaryKey
-            if (opt !== 'begin' || cursor.key.startsWith(pattern)) {
-              resultKeys.add(entry.key)
-            }
-            if (resultKeys.size < MAX) {
-              cursor.continue()
-            }
-          } else {
-            console.log(`${category} done.`)
-          }
-        }
-      })
-    }
-  },
-
-  showAllEntries: function () {
-    let request = window.indexedDB.open('dictDB')
-
-    request.onerror = (event) => {
-      console.log(event.target.error)
-      window.alert(event.target.error)
-    }
-
-    request.onsuccess = (event) => {
-      let db = event.target.result
-      let store = db.transaction('dictStore').objectStore('dictStore')
-      let requestCount = store.count()
-      requestCount.onsuccess = () => {
-        this.setState({ count: requestCount.result })
-      }
-      let searchResult = []
-      store.openCursor().onsuccess = (event) => {
-        let cursor = event.target.result
-        if (cursor) {
-          let entry = cursor.value
-          entry.key = cursor.key
-          Categories.forEach((category) => {
-            if (!entry[category]) entry[category] = []
-          })
-          searchResult.push(entry)
-          if (searchResult.length < MAX) {
-            cursor.continue()
-          } else {
-            this.setState({ searchResult: searchResult, done: true })
-          }
-        } else {
-          this.setState({ searchResult: searchResult, done: true })
-        }
-      }
-    }
-  },
-
-  entryEdit: function (key, category, item, pos) { // searchResult[pos] -> entry
-    let searchResult = this.state.searchResult
-
-    let request = window.indexedDB.open('dictDB')
-
-    request.onerror = (event) => {
-      console.log(event.target.error)
-      window.alert(event.target.error)
-    }
-
-    request.onsuccess = (event) => {
-      let db = event.target.result
-      let transaction = db.transaction('dictStore', 'readwrite')
-
-      transaction.onabort = (event) => {
-        if (event.target.error === null) {
-          window.alert('(null) The transaction is not finished, is finished and successfully committed, or was aborted with IDBTransaction.abort function.')
-        } else {
-          console.log(event.target.error)
-          window.alert(event.target.error)
-        }
-      }
-
-      let store = transaction.objectStore('dictStore')
-      if (category === 'ADD') {
-        let requestAdd = store.add(item)
-        requestAdd.onsuccess = () => {
-          item.key = requestAdd.result
-          searchResult.unshift(item)
-          this.setState({searchResult: searchResult})
-          this.refs.Fieldset.handleAddNewEntry(`entry-${item.key}`)
-        }
-      } else if (category === 'DELETE') {
-        let requestDel = store.delete(key)
-        requestDel.onsuccess = () => {
-          searchResult.splice(pos, 1)
-          this.setState({searchResult: searchResult})
-        }
-      } else {
-        let requestGet = store.get(key)
-        requestGet.onsuccess = (event) => {
-          let entry = event.target.result
-          switch (typeof item) {
-            case 'string':
-              if (!entry[category]) entry[category] = []
-              if (category === 'img') {
-                entry[category].unshift(item)
-              } else {
-                entry[category].push(item)
-              }
-              break
-            case 'number':
-              entry[category].splice(item, 1)
-              break
-            case 'object': // item -> [updateStart, updateValue]
-              let updateStart = item[0]
-              let updateValue = item[1]
-              entry[category].splice(updateStart, 1, updateValue)
-              break
-          }
-
-          let requestUpdate = store.put(entry, key)
-          requestUpdate.onsuccess = () => {
-            searchResult[pos][category] = entry[category]
-            this.setState({ searchResult: searchResult })
-          }
-        }
-      }
-    }
-  },
-
-  render: function () {
-    return (
-      <section>
-        <input type='button' value='Continue' onClick={this.handleClick}
-          style={{display: this.props.continueButton}} />
-        <h2 style={{display: 'inline'}}>{
-          this.state.count
-          ? `Found ${this.state.count} entries.`
-          : ''
-        }</h2>
-        {
-          this.state.done
-          ? <span>
-            <input type='button' value='Add' onClick={() => {
-              let newEntry = {}
-              Categories.forEach((category) => {
-                newEntry[category] = []
-              })
-              this.entryEdit(null, 'ADD', newEntry, null)
-            }} /> an new Entry.
-          </span>
-          : ''
-        }
-        <AhuiDict.Words.Search ref='Search' onSearch={this.handleSearch} />
-        <AhuiDict.Words.Fieldset ref='Fieldset' entryEdit={this.entryEdit}
-          searchResult={this.state.searchResult} />
-        <p>{this.state.done ? 'All words has been listed out.' : ''}</p>
-      </section>
-    )
-  }
-})
-
-AhuiDict.Words.Search = React.createClass({ // eslint-disable-line no-undef
-  getInitialState: function () {
-    return {
+      dbSize: 0,
       checkboxes: new Set(['JP', 'CN', 'EN']),
       opt: 'exactly',
-      continue: false
-    }
-  },
-
-  handleContinue: function () {
-    this.setState({continue: true})
-  },
-
-  render: function () {
-    return (<div id='searchArea' style={{display: this.state.continue
-      ? 'block' : 'none'}}>
-
-      <input type='search' size='50' ref={
-        (ref) => this.search = ref // eslint-disable-line no-return-assign
-      } />
-      <input type='button' value='Search' onClick={() => {
-        this.props.onSearch(
-          this.search.value, this.state.opt, this.state.checkboxes)
-      }} />
-
-      <table><tbody><tr>
-      {
-        ['JP', 'CN', 'EN', 'Tags', 'Notes'].map((category) => {
-          return <td key={category}><label>
-            <input type='checkbox' checked={this.state.checkboxes.has(category)}
-              onChange={() => {
-                let checkboxes = this.state.checkboxes
-                if (checkboxes.has(category)) {
-                  checkboxes.delete(category)
-                } else {
-                  checkboxes.add(category)
-                }
-                this.setState({checkboxes: checkboxes})
-              }} />
-            {category}
-          </label></td>
-        })
-      }
-      </tr><tr>
-      {
-        ['exactly', 'begin', 'end', 'contain', 'RegExp'].map((opt) => {
-          return <td key={opt}><label>
-            <input type='radio' checked={this.state.opt === opt}
-              onChange={() => {
-                this.setState({opt: opt})
-              }} />
-            {opt}
-          </label></td>
-        })
-      }
-      </tr></tbody></table>
-    </div>)
-  }
-})
-
-AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
-  getInitialState: function () {
-    return {
-      popup: '', // Use to toggle `copy` and `delete` buttons.
+      searchResult: [],
+      popup: '',
       edit: '',
       notes: '',
       showPic: new Set(),
@@ -410,8 +30,14 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
     }
   },
 
-  handleAddNewEntry: function (entryKey) {
-    this.setState({edit: entryKey})
+  componentDidMount: function () {
+    db.loadDatabase((err) => {
+      if (err) window.alert(`Error(loadDatabase): ${err}`)
+      db.count({}, (err, count) => {
+        if (err) window.alert(err)
+        this.setState({dbSize: count, continueButton: 'block'})
+      })
+    })
   },
 
   popup: function (id) {
@@ -426,52 +52,73 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
     this.setState({popup: '', notes: ''})
   },
 
-  entryEdit: function (key, category, item, pos) {
-    switch (typeof item) {
-      case 'number':
-        if (window.confirm(`Delete 【${this.props.searchResult[pos][category][item]}】?`)) {
-          this.hidePopup()
-          this.props.entryEdit(key, category, item, pos)
-        }
-        break
-      case 'object': // item is an array or <input[type="text"]> or <textarea>
-        if (Array.isArray(item)) {
-          this.props.entryEdit(key, category, [item[0], item[1].value], pos)
-        } else {
-          this.props.entryEdit(key, category, item.value, pos)
-        }
-        item.value = ''
+  entryDel: function(id, category, item, i, pos) {
+    if (window.confirm(`Delete ** ${this.state.searchResult[pos][category][i]}  ** ?`)) {
+      let obj = {}
+      obj[category] = item
+      db.update({_id: id}, {$pull: obj}, {}, (err) => {
+        if (err) window.alert(err)
+        let searchResult = this.state.searchResult
+        searchResult[pos][category].splice(i, 1)
+        this.setState({searchResult: searchResult})
         this.hidePopup()
-        break
+      })
     }
   },
 
+  entryUpdate: function(id, category, item, i, pos) {
+    let searchResult = this.state.searchResult
+    let newCategory = searchResult[pos][category]
+    newCategory.splice(i, 1, item)
+    let obj = {}
+    obj[category] = newCategory
+    db.update({_id: id}, {$set: obj}, {}, (err) => {
+      if (err) window.alert(err)
+      searchResult[pos][category] = newCategory
+      this.setState({searchResult: searchResult})
+      this.hidePopup()
+    })
+  },
+
+  entryAdd: function(id, category, element, pos) {
+    let obj = {}
+    obj[category] = element.value
+    db.update({_id: id}, {$push: obj}, {}, (err) => {
+      if (err) window.alert(err)
+      let searchResult = this.state.searchResult
+      searchResult[pos][category].push(element.value)
+      this.setState({searchResult: searchResult})
+      element.value = ''
+      this.hidePopup()
+    })
+  },
+
   jpCnEn: function (entry, category, pKey, pos) {
-    let refId = `${category}-${entry.key}`
+    let entryId = entry['_id']
+    let refId = `${category}-${entryId}`
     return (
       <p key={pKey} className={category} style={{display:
-          entry[category].length > 0 || this.state.edit === `entry-${entry.key}`
+          entry[category].length > 0 || this.state.edit === `entry-${entryId}`
           ? 'block' : 'none'}}>
         <strong>{category === 'tags' ? 'Tags' : category.toUpperCase()}</strong>:
-        {
-          entry[category].map(function (item, i) {
-            return <span key={i}>
-              <code onClick={
-                this.popup.bind(
-                  this, `entry-${entry.key}-${category}-${i}`)}>{item}</code>
-              <span className='popup' style={{display:
-                this.state.popup === `entry-${entry.key}-${category}-${i}`
-                ? 'inline' : 'none'}}>
-                <input type='button' value='copy' onClick={() => {
-                  clipboard.writeText(item)
-                }} />
-                <input type='button' value='delete' onClick={
-                  this.entryEdit.bind(this, entry.key, category, i, pos)} />
-              </span>
-            </span>
-          }.bind(this))
-        }
-        <span style={{display: this.state.edit === `entry-${entry.key}`
+{
+  entry[category].map(function (item, i) {
+    let popupId = `${category}-${i}-${entryId}`
+    return <span key={i}>
+      <code onClick={this.popup.bind(this, popupID)}>{item}</code>
+      <span className='popup' style={{display: this.state.popup === popupID
+        ? 'inline' : 'none'}}>
+        <input type='button' value='copy' onClick={() => {
+          clipboard.writeText(item)
+        }} />
+        <input type='button' value='delete' onClick={
+          this.entryDel.bind(this, entryId, category, item, i, pos)
+        } />
+      </span>
+    </span>
+  }.bind(this))
+}
+        <span style={{display: this.state.edit === `entry-${entryId}`
                 ? 'inline' : 'none'}}>
           <input type='text'
             ref={
@@ -479,49 +126,87 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
             }
             onKeyPress={(event) => {
               if (event.key === 'Enter') {
-                this.entryEdit(entry.key, category, this[refId], pos)
+                this.entryAdd(entryId, category, this[refId], pos)
               } }} />
           <input type='button' value='add' onClick={() => {
-            this.entryEdit(entry.key, category, this[refId], pos)
+            this.entryAdd(entryId, category, this[refId], pos)
           }} />
         </span>
       </p>
     )
   },
 
-  showPic: function (pic) {
-    let showPic = this.state.showPic
-    showPic.add(pic)
-    let showButtons = this.state.showButtons
-    showButtons.add(pic)
-    this.setState({ showButtons: showButtons, showPic: showPic })
-  },
-
-  togglePic: function (pic) {
-    let showPic = this.state.showPic
-    if (showPic.has(pic)) {
-      showPic.delete(pic)
-    } else {
-      showPic.add(pic)
-    }
-    this.setState({ showPic: showPic })
-  },
-
-  ignoreDrag: function (event) {
-    event.stopPropagation()
-    event.preventDefault()
-  },
-
   render: function () {
-    return (<div>
+    return (<article>
+      <header>
+        <h1>{
+          packageJSON.name // eslint-disable-line no-undef
+        }</h1>
+        <p>{
+          `${packageJSON.name} ${packageJSON.version}, Node ${process.versions.node}, Chrome ${process.versions.chrome}, Electron ${process.versions.electron}.` // eslint-disable-line no-undef
+        }</p>
+        {
+          this.state.dbSize > 0
+          ? <p>{`${this.state.dbSize} documents in database.`}</p>
+          : <h3>Loading ...</h3>
+        }
+      </header>
+
+      <section id='searchSection'
+        style={{display: this.state.dbSize > 0 ? 'block' : 'none'}}>
+
+        <input type='search' size='50' ref={
+          (ref) => this.search = ref // eslint-disable-line no-return-assign
+        } />
+        <input type='button' value='Search' onClick={() => {
+          this.onSearch(this.search.value, this.state.opt, this.state.checkboxes)
+        }} />
+
+        <table><tbody><tr>
 {
-  this.props.searchResult.map(function (entry, pos) { // searchResult[pos] -> entry
+  ['JP', 'CN', 'EN', 'Tags', 'Notes'].map((category) => {
+    return <td key={category}><label>
+      <input type='checkbox' checked={this.state.checkboxes.has(category)}
+        onChange={() => {
+          let checkboxes = this.state.checkboxes
+          if (checkboxes.has(category)) {
+            checkboxes.delete(category)
+            if (checkboxes.size === 0) {
+              checkboxes = new Set(['JP', 'CN', 'EN'])
+            }
+          } else {
+            checkboxes.add(category)
+          }
+          this.setState({checkboxes: checkboxes})
+        }} />
+      {category}
+    </label></td>
+  })
+}
+        </tr><tr>
+{
+  ['exactly', 'begin', 'end', 'contain', 'RegExp'].map((opt) => {
+    return <td key={opt}><label>
+      <input type='radio' checked={this.state.opt === opt} onChange={() => {
+        this.setState({opt: opt})
+      }} />
+      {opt}
+    </label></td>
+  })
+}
+        </tr></tbody></table>
+
+      </section>
+
+      <section id='resultSection'>
+{
+  this.state.searchResult.map((entry, pos) => { // searchResult[pos] -> entry
     let imgCount = entry.img.length
-    let entryId = `entry-${entry.key}`
+    let entryId = `entry-${entry['_id']}`
     let editMode = {display: this.state.edit === entryId ? 'inline' : 'none'}
-    return <fieldset key={entry.key}>
+    return <fieldset key={pos}>
       <legend>
-        {entry.key}
+        {entry['_id']}
         <span>
           <input type='button'
             value={this.state.edit === entryId ? 'Done' : 'Edit'}
@@ -534,8 +219,13 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
             }} />
           <input type='button' value='Delete' style={editMode}
             onClick={() => {
-              if (window.confirm(`Delete ** entry ${entry.key} ** ?`)) {
-                this.props.entryEdit(entry.key, 'DELETE', null, pos)
+              if (window.confirm(`Delete ** entry ${entry['_id']} ** ?`)) {
+                db.remove({_id: entry['_id']}, {}, (err) => {
+                  if (err) window.alert(err)
+                  let searchResult = this.state.searchResult
+                  searchResult.splice(pos, 1)
+                  this.setState({searchResult: searchResult})
+                })
               }
             }} />
         </span>
@@ -552,15 +242,15 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
         <span style={editMode}>
           <textarea rows='2' cols='50'
             ref={
-              (ref) => this[`notes-${entry.key}`] = ref // eslint-disable-line no-return-assign
+              (ref) => this[`notes-${entry['_id']}`] = ref // eslint-disable-line no-return-assign
             } />
-          <input type='button' value='add' onClick={this.entryEdit.bind(
-            this, entry.key, 'notes', this[`notes-${entry.key}`], pos)} />
+          <input type='button' value='add' onClick={this.entryAdd.bind(
+            this, entry['_id'], 'notes', this[`notes-${entry['_id']}`], pos)} />
         </span>
         <ul style={{listStyle: this.state.edit === entryId ? 'none' : 'disc'}}>
 {
   entry.notes.map((item, i) => {
-    let noteId = `entry-${entry.key}-notes-${i}`
+    let noteId = `entry-${entry['_id']}-notes-${i}`
     return <li key={i}>
       <input type='radio' value={noteId} checked={this.state.notes === noteId}
         onChange={() => {
@@ -579,9 +269,9 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
             (ref) => this[noteId] = ref // eslint-disable-line no-return-assign
           } />
         <input type='button' value='delete' onClick={
-          this.entryEdit.bind(this, entry.key, 'notes', i, pos)} />
-        <input type='button' value='update' onClick={this.entryEdit.bind(
-          this, entry.key, 'notes', [i, this[noteId]], pos)} />
+          this.entryDel.bind(this, entry['_id'], 'notes', item, i, pos)} />
+        <input type='button' value='update' onClick={this.entryUpdate.bind(
+          this, entry['_id'], 'notes', this[noteId].value, i, pos)} />
       </span>
     </li>
   })
@@ -595,17 +285,17 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
         <input
           type='button'
           value='Show'
-          onClick={this.showPic.bind(this, `showPic-${entry.key}`)}
+          onClick={this.showPic.bind(this, `showPic-${entry['_id']}`)}
           style={{display:
-            imgCount > 0 && !this.state.showButtons.has(`showPic-${entry.key}`)
+            imgCount > 0 && !this.state.showButtons.has(`showPic-${entry['_id']}`)
               ? 'inline' : 'none'}} />
         <input
           type='button'
-          value={this.state.showPic.has(`showPic-${entry.key}`)
+          value={this.state.showPic.has(`showPic-${entry['_id']}`)
               ? 'Hide' : 'Show'}
-          onClick={this.togglePic.bind(this, `showPic-${entry.key}`)}
+          onClick={this.togglePic.bind(this, `showPic-${entry['_id']}`)}
           style={{display:
-            this.state.showButtons.has(`showPic-${entry.key}`)
+            this.state.showButtons.has(`showPic-${entry['_id']}`)
               ? 'inline' : 'none'}} />
         <div id='dropBox' onDragEnter={this.ignoreDrag} onDragOver={this.ignoreDrag}
           style={{display: this.state.edit === entryId ? 'block' : 'none'}}
@@ -620,19 +310,19 @@ AhuiDict.Words.Fieldset = React.createClass({ // eslint-disable-line no-undef
 Acceptable file types: .jpg .png .gif etc.`)
             } else {
               let suffix = `.${file.type.match(/\/(.+)/)[1]}`
-              filename = `${entry.key}-${Date.now()}${suffix}`
+              filename = `${entry['_id']}-${Date.now()}${suffix}`
             }
             let dest = `${imgNodejs}${filename}`
             fs.copy(src, dest, (err) => {
               if (err) return window.alert(err)
-              this.props.entryEdit(entry.key, 'img', filename, pos)
+              this.props.entryEdit(entry['_id'], 'img', filename, pos)
               this.hidePopup()
             })
           }}>
           <div>Drop your image here...</div>
         </div>
       </div>
-      <div style={{display: this.state.showPic.has(`showPic-${entry.key}`)
+      <div style={{display: this.state.showPic.has(`showPic-${entry['_id']}`)
             ? 'block' : 'none'}}>
         {
           entry.img.map((filename, key) => {
@@ -642,7 +332,7 @@ Acceptable file types: .jpg .png .gif etc.`)
                   if (window.confirm(`Delete this photo? [${imgNodejs}${filename}]`)) {
                     fs.remove(`${imgNodejs}${filename}`, (err) => {
                       if (err) return window.alert(err)
-                      this.props.entryEdit(entry.key, 'img', key, pos)
+                      this.props.entryEdit(entry['_id'], 'img', key, pos)
                       this.hidePopup()
                     })
                   }
@@ -657,10 +347,17 @@ Acceptable file types: .jpg .png .gif etc.`)
         }
       </div>
     </fieldset>
-  }.bind(this))
+  })
 }
-    </div>
-    )
+      </section>
+
+    </article>)
+  }
+})
+
+AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
+  render: function () {
+    return <div>AhuiDict.Words</div>
   }
 })
 

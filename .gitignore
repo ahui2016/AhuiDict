@@ -1,4 +1,6 @@
 node_modules
 old_versions
-app/images
 react-15.3.1
+app/images
+app/database.json
+app/database.nedb
