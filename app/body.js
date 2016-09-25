@@ -15,8 +15,8 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
   getInitialState: function () {
     return {
       dbSize: 0,
-      checkboxes: new Set(['JP', 'CN', 'EN']),
-      opt: 'exactly',
+      checkboxes: new Set(['JP', 'CN', 'EN', 'Tags', 'Notes']),
+      opt: 'contain',
       searchResult: [],
       popup: '',
       edit: '',
@@ -38,6 +38,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         this.setState({dbSize: count, continueButton: 'block'})
       })
     })
+    this.search.focus()
   },
 
   popup: function (id) {
@@ -52,8 +53,15 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     this.setState({popup: '', notes: ''})
   },
 
-  entryDel: function(id, category, item, i, pos) {
-    if (window.confirm(`Delete ** ${this.state.searchResult[pos][category][i]}  ** ?`)) {
+  entryDel: function (id, category, item, i, pos) {
+    let delConfirm = false
+    if (category === 'img') {
+      delConfirm = true
+    } else {
+      delConfirm = window.confirm(
+        `Delete ** ${this.state.searchResult[pos][category][i]}  ** ?`)
+    }
+    if (delConfirm) {
       let obj = {}
       obj[category] = item
       db.update({_id: id}, {$pull: obj}, {}, (err) => {
@@ -66,10 +74,10 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     }
   },
 
-  entryUpdate: function(id, category, item, i, pos) {
+  entryUpdate: function (id, category, element, i, pos) {
     let searchResult = this.state.searchResult
     let newCategory = searchResult[pos][category]
-    newCategory.splice(i, 1, item)
+    newCategory.splice(i, 1, element.value)
     let obj = {}
     obj[category] = newCategory
     db.update({_id: id}, {$set: obj}, {}, (err) => {
@@ -80,7 +88,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     })
   },
 
-  entryAdd: function(id, category, element, pos) {
+  entryAdd: function (id, category, element, pos) {
     let obj = {}
     obj[category] = element.value
     db.update({_id: id}, {$push: obj}, {}, (err) => {
@@ -93,8 +101,19 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     })
   },
 
+  imgAdd: function (id, category, filename, pos) {
+    let obj = {}
+    obj[category] = filename
+    db.update({_id: id}, {$push: obj}, {}, (err) => {
+      if (err) window.alert(err)
+      let searchResult = this.state.searchResult
+      searchResult[pos][category].unshift(filename)
+      this.setState({searchResult: searchResult})
+    })
+  },
+
   jpCnEn: function (entry, category, pKey, pos) {
-    let entryId = entry['_id']
+    let entryId = entry._id
     let refId = `${category}-${entryId}`
     return (
       <p key={pKey} className={category} style={{display:
@@ -105,8 +124,8 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
   entry[category].map(function (item, i) {
     let popupId = `${category}-${i}-${entryId}`
     return <span key={i}>
-      <code onClick={this.popup.bind(this, popupID)}>{item}</code>
-      <span className='popup' style={{display: this.state.popup === popupID
+      <code onClick={this.popup.bind(this, popupId)}>{item}</code>
+      <span className='popup' style={{display: this.state.popup === popupId
         ? 'inline' : 'none'}}>
         <input type='button' value='copy' onClick={() => {
           clipboard.writeText(item)
@@ -136,7 +155,70 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     )
   },
 
+  showPic: function (pic) {
+    let showPic = this.state.showPic
+    showPic.add(pic)
+    let showButtons = this.state.showButtons
+    showButtons.add(pic)
+    this.setState({ showButtons: showButtons, showPic: showPic })
+  },
+
+  togglePic: function (pic) {
+    let showPic = this.state.showPic
+    if (showPic.has(pic)) {
+      showPic.delete(pic)
+    } else {
+      showPic.add(pic)
+    }
+    this.setState({ showPic: showPic })
+  },
+
+  ignoreDrag: function (event) {
+    event.stopPropagation()
+    event.preventDefault()
+  },
+
+  onSearch: function (pattern, opt, categories) {
+    if (pattern === '') {
+      this.setState({searchResult: []})
+      return
+    }
+    switch (opt) {
+      case 'begin':
+        pattern = new RegExp(`^${pattern}`)
+        break
+      case 'end':
+        pattern = new RegExp(`${pattern}$`)
+        break
+      case 'contain':
+      case 'RegExp':
+        pattern = new RegExp(pattern)
+        break
+    }
+    categories = Array.from(categories)
+    categories = categories.map((category) => category.toLowerCase())
+    let queries = []
+    for (let key in categories) {
+      let query = {}
+      let category = categories[key]
+      query[category] = pattern
+      queries.push(query)
+    }
+    db.find({$or: queries}).limit(MAX).exec((err, docs) => {
+      if (err) window.alert(err)
+      for (let key in docs) {
+        let doc = docs[key]
+        for (let key in Categories) {
+          let category = Categories[key]
+          if (!doc[category]) doc[category] = []
+        }
+      }
+      this.setState({searchResult: docs})
+    })
+  },
+
   render: function () {
+    let resultCount = this.state.searchResult.length
     return (<article>
       <header>
         <h1>{
@@ -147,7 +229,26 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         }</p>
         {
           this.state.dbSize > 0
-          ? <p>{`${this.state.dbSize} documents in database.`}</p>
+          ? <p>
+            {this.state.dbSize} documents in database.
+            <span>
+              <input type='button' value='Add' onClick={() => {
+                let newEntry = {}
+                Categories.forEach((category) => {
+                  newEntry[category] = []
+                })
+                db.insert(newEntry, (err, newDoc) => {
+                  if (err) window.alert(err)
+                  let searchResult = this.state.searchResult
+                  searchResult.unshift(newDoc)
+                  this.setState({
+                    searchResult: searchResult,
+                    edit: `entry-${newDoc._id}`
+                  })
+                })
+              }} /> an new Entry.
+            </span>
+          </p>
           : <h3>Loading ...</h3>
         }
       </header>
@@ -155,9 +256,15 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       <section id='searchSection'
         style={{display: this.state.dbSize > 0 ? 'block' : 'none'}}>
 
-        <input type='search' size='50' ref={
-          (ref) => this.search = ref // eslint-disable-line no-return-assign
-        } />
+        <input type='search' size='50'
+          ref={
+            (ref) => this.search = ref // eslint-disable-line no-return-assign
+          }
+          onKeyPress={(event) => {
+            if (event.key === 'Enter') {
+              this.onSearch(this.search.value, this.state.opt, this.state.checkboxes)
+            }
+          }} />
         <input type='button' value='Search' onClick={() => {
           this.onSearch(this.search.value, this.state.opt, this.state.checkboxes)
         }} />
@@ -199,14 +306,21 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       </section>
 
       <section id='resultSection'>
+      {
+        this.search && this.search.value !== ''
+        ? resultCount > 0
+          ? <p>[ {this.search.value} ] : Found {resultCount} {resultCount > 1 ? 'entries' : 'entry'}.</p>
+          : <p>[ {this.search.value} ] : Not found.</p>
+        : ''
+      }
 {
   this.state.searchResult.map((entry, pos) => { // searchResult[pos] -> entry
     let imgCount = entry.img.length
-    let entryId = `entry-${entry['_id']}`
+    let entryId = `entry-${entry._id}`
     let editMode = {display: this.state.edit === entryId ? 'inline' : 'none'}
     return <fieldset key={pos}>
       <legend>
-        {entry['_id']}
+        {pos + 1}
         <span>
           <input type='button'
             value={this.state.edit === entryId ? 'Done' : 'Edit'}
@@ -219,8 +333,8 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
             }} />
           <input type='button' value='Delete' style={editMode}
             onClick={() => {
-              if (window.confirm(`Delete ** entry ${entry['_id']} ** ?`)) {
-                db.remove({_id: entry['_id']}, {}, (err) => {
+              if (window.confirm(`Delete ** entry ${entry._id} ** ?`)) {
+                db.remove({_id: entry._id}, {}, (err) => {
                   if (err) window.alert(err)
                   let searchResult = this.state.searchResult
                   searchResult.splice(pos, 1)
@@ -242,15 +356,15 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         <span style={editMode}>
           <textarea rows='2' cols='50'
             ref={
-              (ref) => this[`notes-${entry['_id']}`] = ref // eslint-disable-line no-return-assign
+              (ref) => this[`notes-${entry._id}`] = ref // eslint-disable-line no-return-assign
             } />
           <input type='button' value='add' onClick={this.entryAdd.bind(
-            this, entry['_id'], 'notes', this[`notes-${entry['_id']}`], pos)} />
+            this, entry._id, 'notes', this[`notes-${entry._id}`], pos)} />
         </span>
         <ul style={{listStyle: this.state.edit === entryId ? 'none' : 'disc'}}>
 {
   entry.notes.map((item, i) => {
-    let noteId = `entry-${entry['_id']}-notes-${i}`
+    let noteId = `entry-${entry._id}-notes-${i}`
     return <li key={i}>
       <input type='radio' value={noteId} checked={this.state.notes === noteId}
         onChange={() => {
@@ -269,9 +383,9 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
             (ref) => this[noteId] = ref // eslint-disable-line no-return-assign
           } />
         <input type='button' value='delete' onClick={
-          this.entryDel.bind(this, entry['_id'], 'notes', item, i, pos)} />
+          this.entryDel.bind(this, entry._id, 'notes', item, i, pos)} />
         <input type='button' value='update' onClick={this.entryUpdate.bind(
-          this, entry['_id'], 'notes', this[noteId].value, i, pos)} />
+          this, entry._id, 'notes', this[noteId], i, pos)} />
       </span>
     </li>
   })
@@ -285,17 +399,17 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         <input
           type='button'
           value='Show'
-          onClick={this.showPic.bind(this, `showPic-${entry['_id']}`)}
+          onClick={this.showPic.bind(this, `showPic-${entry._id}`)}
           style={{display:
-            imgCount > 0 && !this.state.showButtons.has(`showPic-${entry['_id']}`)
+            imgCount > 0 && !this.state.showButtons.has(`showPic-${entry._id}`)
               ? 'inline' : 'none'}} />
         <input
           type='button'
-          value={this.state.showPic.has(`showPic-${entry['_id']}`)
+          value={this.state.showPic.has(`showPic-${entry._id}`)
               ? 'Hide' : 'Show'}
-          onClick={this.togglePic.bind(this, `showPic-${entry['_id']}`)}
+          onClick={this.togglePic.bind(this, `showPic-${entry._id}`)}
           style={{display:
-            this.state.showButtons.has(`showPic-${entry['_id']}`)
+            this.state.showButtons.has(`showPic-${entry._id}`)
               ? 'inline' : 'none'}} />
         <div id='dropBox' onDragEnter={this.ignoreDrag} onDragOver={this.ignoreDrag}
           style={{display: this.state.edit === entryId ? 'block' : 'none'}}
@@ -304,25 +418,25 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
             event.preventDefault()
             let file = event.dataTransfer.files[0]
             let src = file.path
-            let filename // initialize it
+            let filename // initialize
             if (!file.type.startsWith('image')) {
-              return window.alert(`** ${src} ** is not an image file!
+              return window.alert(`** ${src} ** is not an image file! \
 Acceptable file types: .jpg .png .gif etc.`)
             } else {
               let suffix = `.${file.type.match(/\/(.+)/)[1]}`
-              filename = `${entry['_id']}-${Date.now()}${suffix}`
+              filename = `${entry._id}${suffix}`
             }
             let dest = `${imgNodejs}${filename}`
             fs.copy(src, dest, (err) => {
               if (err) return window.alert(err)
-              this.props.entryEdit(entry['_id'], 'img', filename, pos)
+              this.imgAdd(entry._id, 'img', filename, pos)
               this.hidePopup()
             })
           }}>
           <div>Drop your image here...</div>
         </div>
       </div>
-      <div style={{display: this.state.showPic.has(`showPic-${entry['_id']}`)
+      <div style={{display: this.state.showPic.has(`showPic-${entry._id}`)
             ? 'block' : 'none'}}>
         {
           entry.img.map((filename, key) => {
@@ -332,8 +446,7 @@ Acceptable file types: .jpg .png .gif etc.`)
                   if (window.confirm(`Delete this photo? [${imgNodejs}${filename}]`)) {
                     fs.remove(`${imgNodejs}${filename}`, (err) => {
                       if (err) return window.alert(err)
-                      this.props.entryEdit(entry['_id'], 'img', key, pos)
-                      this.hidePopup()
+                      this.entryDel(entry._id, 'img', filename, key, pos)
                     })
                   }
                 }} />
@@ -352,12 +465,6 @@ Acceptable file types: .jpg .png .gif etc.`)
       </section>
 
     </article>)
-  }
-})
-
-AhuiDict.Words = React.createClass({ // eslint-disable-line no-undef
-  render: function () {
-    return <div>AhuiDict.Words</div>
   }
 })
 
