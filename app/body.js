@@ -2,7 +2,7 @@ const {clipboard} = require('electron')
 const fs = require('fs-extra')
 const imgNodejs = './app/images/'
 const imgChrome = './images/'
-const Categories = ['jp', 'cn', 'en', 'tags', 'notes', 'img']
+const Fields = ['jp', 'cn', 'en', 'tags', 'notes', 'img']
 const MAX = 10
 
 const Datastore = require('nedb')
@@ -53,106 +53,58 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     this.setState({popup: '', notes: ''})
   },
 
-  entryDel: function (id, category, item, i, pos) {
-    let delConfirm = false
-    if (category === 'img') {
-      delConfirm = true
-    } else {
-      delConfirm = window.confirm(
-        `Delete ** ${this.state.searchResult[pos][category][i]}  ** ?`)
-    }
-    if (delConfirm) {
-      let obj = {}
-      obj[category] = item
-      db.update({_id: id}, {$pull: obj}, {}, (err) => {
-        if (err) window.alert(err)
-        let searchResult = this.state.searchResult
-        searchResult[pos][category].splice(i, 1)
-        this.setState({searchResult: searchResult})
-        this.hidePopup()
-      })
-    }
-  },
-
-  entryUpdate: function (id, category, element, i, pos) {
-    let searchResult = this.state.searchResult
-    let newCategory = searchResult[pos][category]
-    newCategory.splice(i, 1, element.value)
+  entryDel: function (id, field, item, i, pos) {
     let obj = {}
-    obj[category] = newCategory
-    db.update({_id: id}, {$set: obj}, {}, (err) => {
+    obj[field] = item
+    db.update({_id: id}, {$pull: obj}, {}, (err) => {
       if (err) window.alert(err)
-      searchResult[pos][category] = newCategory
+      let searchResult = this.state.searchResult
+      searchResult[pos][field].splice(i, 1)
+      searchResult[pos]['updatedAt'] = new Date()
       this.setState({searchResult: searchResult})
       this.hidePopup()
     })
   },
 
-  entryAdd: function (id, category, element, pos) {
+  entryUpdate: function (id, field, element, i, pos) {
+    let searchResult = this.state.searchResult
+    let newfield = searchResult[pos][field]
+    newfield.splice(i, 1, element.value)
     let obj = {}
-    obj[category] = element.value
+    obj[field] = newfield
+    db.update({_id: id}, {$set: obj}, {}, (err) => {
+      if (err) window.alert(err)
+      searchResult[pos][field] = newfield
+      searchResult[pos]['updatedAt'] = new Date()
+      this.setState({searchResult: searchResult})
+      this.hidePopup()
+    })
+  },
+
+  entryAdd: function (id, field, element, pos) {
+    let obj = {}
+    obj[field] = element.value
     db.update({_id: id}, {$push: obj}, {}, (err) => {
       if (err) window.alert(err)
       let searchResult = this.state.searchResult
-      searchResult[pos][category].push(element.value)
+      searchResult[pos][field].push(element.value)
+      searchResult[pos]['updatedAt'] = new Date()
       this.setState({searchResult: searchResult})
       element.value = ''
       this.hidePopup()
     })
   },
 
-  imgAdd: function (id, category, filename, pos) {
+  imgAdd: function (id, field, filename, pos) {
     let obj = {}
-    obj[category] = filename
+    obj[field] = filename
     db.update({_id: id}, {$push: obj}, {}, (err) => {
       if (err) window.alert(err)
       let searchResult = this.state.searchResult
-      searchResult[pos][category].unshift(filename)
+      searchResult[pos][field].unshift(filename)
+      searchResult[pos]['updatedAt'] = new Date()
       this.setState({searchResult: searchResult})
     })
-  },
-
-  jpCnEn: function (entry, category, pKey, pos) {
-    let entryId = entry._id
-    let refId = `${category}-${entryId}`
-    return (
-      <p key={pKey} className={category} style={{display:
-          entry[category].length > 0 || this.state.edit === `entry-${entryId}`
-          ? 'block' : 'none'}}>
-        <strong>{category === 'tags' ? 'Tags' : category.toUpperCase()}</strong>:
-{
-  entry[category].map(function (item, i) {
-    let popupId = `${category}-${i}-${entryId}`
-    return <span key={i}>
-      <code onClick={this.popup.bind(this, popupId)}>{item}</code>
-      <span className='popup' style={{display: this.state.popup === popupId
-        ? 'inline' : 'none'}}>
-        <input type='button' value='copy' onClick={() => {
-          clipboard.writeText(item)
-        }} />
-        <input type='button' value='delete' onClick={
-          this.entryDel.bind(this, entryId, category, item, i, pos)
-        } />
-      </span>
-    </span>
-  }.bind(this))
-}
-        <span style={{display: this.state.edit === `entry-${entryId}`
-                ? 'inline' : 'none'}}>
-          <input type='text'
-            ref={
-              (ref) => this[refId] = ref // eslint-disable-line no-return-assign
-            }
-            onKeyPress={(event) => {
-              if (event.key === 'Enter') {
-                this.entryAdd(entryId, category, this[refId], pos)
-              } }} />
-          <input type='button' value='add' onClick={() => {
-            this.entryAdd(entryId, category, this[refId], pos)
-          }} />
-        </span>
-      </p>
-    )
   },
 
   showPic: function (pic) {
@@ -178,7 +130,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     event.preventDefault()
   },
 
-  onSearch: function (pattern, opt, categories) {
+  onSearch: function (pattern, opt, fields) {
     if (pattern === '') {
       this.setState({searchResult: []})
       return
@@ -195,22 +147,22 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         pattern = new RegExp(pattern)
         break
     }
-    categories = Array.from(categories)
-    categories = categories.map((category) => category.toLowerCase())
+    fields = Array.from(fields)
+    fields = fields.map((field) => field.toLowerCase())
     let queries = []
-    for (let key in categories) {
+    for (let key in fields) {
       let query = {}
-      let category = categories[key]
-      query[category] = pattern
+      let field = fields[key]
+      query[field] = pattern
       queries.push(query)
     }
     db.find({$or: queries}).limit(MAX).exec((err, docs) => {
       if (err) window.alert(err)
       for (let key in docs) {
         let doc = docs[key]
-        for (let key in Categories) {
-          let category = Categories[key]
-          if (!doc[category]) doc[category] = []
+        for (let key in Fields) {
+          let field = Fields[key]
+          if (!doc[field]) doc[field] = []
         }
       }
       this.setState({searchResult: docs})
@@ -230,23 +182,25 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         {
           this.state.dbSize > 0
           ? <p>
-            {this.state.dbSize} documents in database.
+            {this.state.dbSize} entries in database.
             <span>
               <input type='button' value='Add' onClick={() => {
                 let newEntry = {}
-                Categories.forEach((category) => {
-                  newEntry[category] = []
+                Fields.forEach((field) => {
+                  newEntry[field] = []
                 })
                 db.insert(newEntry, (err, newDoc) => {
                   if (err) window.alert(err)
                   let searchResult = this.state.searchResult
                   searchResult.unshift(newDoc)
+                  let dbSize = this.state.dbSize + 1
                   this.setState({
                     searchResult: searchResult,
-                    edit: `entry-${newDoc._id}`
+                    edit: `entry-${newDoc._id}`,
+                    dbSize: dbSize
                   })
                 })
-              }} /> an new Entry.
+              }} /> a new Entry.
             </span>
           </p>
           : <h3>Loading ...</h3>
@@ -271,22 +225,22 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
 
         <table><tbody><tr>
 {
-  ['JP', 'CN', 'EN', 'Tags', 'Notes'].map((category) => {
-    return <td key={category}><label>
-      <input type='checkbox' checked={this.state.checkboxes.has(category)}
+  ['JP', 'CN', 'EN', 'Tags', 'Notes'].map((field) => {
+    return <td key={field}><label>
+      <input type='checkbox' checked={this.state.checkboxes.has(field)}
         onChange={() => {
           let checkboxes = this.state.checkboxes
-          if (checkboxes.has(category)) {
-            checkboxes.delete(category)
+          if (checkboxes.has(field)) {
+            checkboxes.delete(field)
             if (checkboxes.size === 0) {
               checkboxes = new Set(['JP', 'CN', 'EN'])
             }
           } else {
-            checkboxes.add(category)
+            checkboxes.add(field)
           }
           this.setState({checkboxes: checkboxes})
         }} />
-      {category}
+      {field}
     </label></td>
   })
 }
@@ -338,17 +292,65 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
                   if (err) window.alert(err)
                   let searchResult = this.state.searchResult
                   searchResult.splice(pos, 1)
-                  this.setState({searchResult: searchResult})
+                  let dbSize = this.state.dbSize - 1
+                  this.setState({searchResult: searchResult, dbSize: dbSize})
                 })
               }
             }} />
         </span>
       </legend>
+{
+  ['_id', 'createdAt', 'updatedAt'].map((field, key) => {
+    return <p key={key} className='moreInfo' style={{display:
+      this.state.edit === entryId ? 'block' : 'none'}}>
+      {`${field}: ${entry[field] instanceof Date
+        ? entry[field].toDateString() : entry[field]}`}
+    </p>
+  })
+}
+{
+  ['jp', 'cn', 'en', 'tags'].map((field, key) => {
+    let refId = `${field}-${entry._id}`
+    return <p key={key} className={field} style={{display:
+      entry[field].length > 0 || this.state.edit === entryId
+      ? 'block' : 'none'}}>
+      <strong>{field === 'tags' ? 'Tags' : field.toUpperCase()}</strong>:
       {
-        ['jp', 'cn', 'en', 'tags'].map((category, key) => {
-          return this.jpCnEn(entry, category, key, pos)
-        })
+        entry[field].map(function (item, i) {
+          let popupId = `${entryId}-${field}-${i}`
+          return <span key={i}>
+            <code onClick={this.popup.bind(this, popupId)}>{item}</code>
+            <span className='popup' style={{display:
+              this.state.popup === popupId ? 'inline' : 'none'}}>
+              <input type='button' value='copy' onClick={() => {
+                clipboard.writeText(item)
+              }} />
+              <input type='button' value='delete' onClick={() => {
+                if (window.confirm(`Delete ** ${item}  ** ?`)) {
+                  this.entryDel(entry._id, field, item, i, pos)
+                }
+              }} />
+            </span>
+          </span>
+        }.bind(this))
       }
+      <span style={{display: this.state.edit === entryId
+              ? 'inline' : 'none'}}>
+        <input type='text'
+          ref={
+            (ref) => this[refId] = ref // eslint-disable-line no-return-assign
+          }
+          onKeyPress={(event) => {
+            if (event.key === 'Enter') {
+              this.entryAdd(entry._id, field, this[refId], pos)
+            } }} />
+        <input type='button' value='add' onClick={() => {
+          this.entryAdd(entry._id, field, this[refId], pos)
+        }} />
+      </span>
+    </p>
+  })
+}
       <div style={{display:
         entry.notes.length > 0 || this.state.edit === entryId
         ? 'block' : 'none'}}>
@@ -382,8 +384,11 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
           ref={
             (ref) => this[noteId] = ref // eslint-disable-line no-return-assign
           } />
-        <input type='button' value='delete' onClick={
-          this.entryDel.bind(this, entry._id, 'notes', item, i, pos)} />
+        <input type='button' value='delete' onClick={() => {
+          if (window.confirm(`Delete ** ${item}  ** ?`)) {
+            this.entryDel(entry._id, 'notes', item, i, pos)
+          }
+        }} />
         <input type='button' value='update' onClick={this.entryUpdate.bind(
           this, entry._id, 'notes', this[noteId], i, pos)} />
       </span>
@@ -438,26 +443,22 @@ Acceptable file types: .jpg .png .gif etc.`)
       </div>
       <div style={{display: this.state.showPic.has(`showPic-${entry._id}`)
             ? 'block' : 'none'}}>
-        {
-          entry.img.map((filename, key) => {
-            return <div key={key} className='image'>
-              <input type='button' value='↓ delete ↓' style={editMode}
-                onClick={() => {
-                  if (window.confirm(`Delete this photo? [${imgNodejs}${filename}]`)) {
-                    fs.remove(`${imgNodejs}${filename}`, (err) => {
-                      if (err) return window.alert(err)
-                      this.entryDel(entry._id, 'img', filename, key, pos)
-                    })
-                  }
-                }} />
-              <br />
-              <img src={
-                `${imgChrome}${filename}`
-              } />
-              <br />
-            </div>
-          })
-        }
+{
+  entry.img.map((filename, key) => {
+    return <div key={key} className='image'>
+      <input type='button' value='↓ delete ↓' style={editMode}
+        onClick={() => {
+          if (window.confirm(`Delete this photo? [${imgNodejs}${filename}]`)) {
+            fs.remove(`${imgNodejs}${filename}`, (err) => {
+              if (err) return window.alert(err)
+              this.entryDel(entry._id, 'img', filename, key, pos)
+            })
+          }
+        }} />
+      <br /><img src={`${imgChrome}${filename}`} /><br />
+    </div>
+  })
+}
       </div>
     </fieldset>
   })
