@@ -2,8 +2,62 @@ const {clipboard} = require('electron')
 const fs = require('fs-extra')
 const imgNodejs = './app/images/'
 const imgChrome = './images/'
-const Fields = ['jp', 'cn', 'en', 'tags', 'notes', 'img']
-const MAX = 10
+const Fields = ['jp', 'assist', 'cn', 'en', 'tags', 'notes', 'img']
+const MAX = 30
+
+const abnormalChars = {
+  'ｧ': 'ァ', 'ｱ': 'ア', 'ｨ': 'ィ', 'ｲ': 'イ', 'ｩ': 'ゥ', 'ｳ': 'ウ', 'ｪ': 'ェ', 'ｴ': 'エ', 'ｫ': 'ォ', 'ｵ': 'オ', 'ｶ': 'カ', 'ｶﾞ': 'ガ', 'ｷ': 'キ', 'ｷﾞ': 'ギ', 'ｸ': 'ク', 'ｸﾞ': 'グ', 'ｹ': 'ケ', 'ｹﾞ': 'ゲ', 'ｺ': 'コ', 'ｺﾞ': 'ゴ', 'ｻ': 'サ', 'ｻﾞ': 'ザ', 'ｼ': 'シ', 'ｼﾞ': 'ジ', 'ｽ': 'ス', 'ｽﾞ': 'ズ', 'ｾ': 'セ', 'ｾﾞ': 'ゼ', 'ｿ': 'ソ', 'ｿﾞ': 'ゾ', 'ﾀ': 'タ', 'ﾀﾞ': 'ダ', 'ﾁ': 'チ', 'ﾁﾞ': 'ヂ', 'ｯ': 'ッ', 'ﾂ': 'ツ', 'ﾂﾞ': 'ヅ', 'ﾃ': 'テ', 'ﾃﾞ': 'デ', 'ﾄ': 'ト', 'ﾄﾞ': 'ド', 'ﾅ': 'ナ', 'ﾆ': 'ニ', 'ﾇ': 'ヌ', 'ﾈ': 'ネ', 'ﾉ': 'ノ', 'ﾊ': 'ハ', 'ﾊﾞ': 'バ', 'ﾊﾟ': 'パ', 'ﾋ': 'ヒ', 'ﾋﾞ': 'ビ', 'ﾋﾟ': 'ピ', 'ﾌ': 'フ', 'ﾌﾞ': 'ブ', 'ﾌﾟ': 'プ', 'ﾍ': 'ヘ', 'ﾍﾞ': 'ベ', 'ﾍﾟ': 'ペ', 'ﾎ': 'ホ', 'ﾎﾞ': 'ボ', 'ﾎﾟ': 'ポ', 'ﾏ': 'マ', 'ﾐ': 'ミ', 'ﾑ': 'ム', 'ﾒ': 'メ', 'ﾓ': 'モ', 'ｬ': 'ャ', 'ﾔ': 'ヤ', 'ｭ': 'ュ', 'ﾕ': 'ユ', 'ｮ': 'ョ', 'ﾖ': 'ヨ', 'ﾗ': 'ラ', 'ﾘ': 'リ', 'ﾙ': 'ル', 'ﾚ': 'レ', 'ﾛ': 'ロ', 'ﾜ': 'ワ', 'ｦ': 'ヲ', 'ﾝ': 'ン', 'ｳﾞ': 'ヴ', '０': '0', '１': '1', '２': '2', '３': '3', '４': '4', '５': '5', '６': '6', '７': '7', '８': '8', '９': '9', 'ａ': 'a', 'ｂ': 'b', 'ｃ': 'c', 'ｄ': 'd', 'ｅ': 'e', 'ｆ': 'f', 'ｇ': 'g', 'ｈ': 'h', 'ｉ': 'i', 'ｊ': 'j', 'ｋ': 'k', 'ｌ': 'l', 'ｍ': 'm', 'ｎ': 'n', 'ｏ': 'o', 'ｐ': 'p', 'ｑ': 'q', 'ｒ': 'r', 'ｓ': 's', 'ｔ': 't', 'ｕ': 'u', 'ｖ': 'v', 'ｗ': 'w', 'ｘ': 'x', 'ｙ': 'y', 'ｚ': 'z', 'Ａ': 'A', 'Ｂ': 'B', 'Ｃ': 'C', 'Ｄ': 'D', 'Ｅ': 'E', 'Ｆ': 'F', 'Ｇ': 'G', 'Ｈ': 'H', 'Ｉ': 'I', 'Ｊ': 'J', 'Ｋ': 'K', 'Ｌ': 'L', 'Ｍ': 'M', 'Ｎ': 'N', 'Ｏ': 'O', 'Ｐ': 'P', 'Ｑ': 'Q', 'Ｒ': 'R', 'Ｓ': 'S', 'Ｔ': 'T', 'Ｕ': 'U', 'Ｖ': 'V', 'Ｗ': 'W', 'Ｘ': 'X', 'Ｙ': 'Y', 'Ｚ': 'Z', '･': '・', 'ｰ': 'ー', '｢': '「', '｣': '」', '､': '、', '／': '/'
+} // Excluding 'ヮ', 'ヵ', 'ヶ', 'ヷ'
+
+const Hiragana = 'あいうえおかきくけこがぎぐげごさしすせそざじずぜぞたちつてとだぢづでどなにぬねのはひふへほぱぴぷぺぽばびぶべぼまみむめもやゆよゃゅょらりるれろわんぁぃぅぇぉっ'
+
+const Katakana = 'アイウエオカキクケコガギグゲゴサシスセソザジズゼゾタチツテトダヂヅデドナニヌネノハヒフヘホパピプペポバビブベボマミムメモヤユヨャュョラリルレロワンァィゥェォッーヴ'
+
+const normalize = (input) => {
+  input = input.trim()
+  let output = []
+  let jump = false
+  for (let i = 0; i < input.length; i++) {
+    if (jump) {
+      jump = false
+    } else {
+      let c = input[i]
+      let cc = input.slice(i, i + 2)
+      switch (abnormalChars.hasOwnProperty(cc)) {
+        case true:
+          output.push(abnormalChars[cc])
+          jump = true
+          break
+        case false:
+          if (abnormalChars.hasOwnProperty(c)) {
+            output.push(abnormalChars[c])
+          } else {
+            output.push(c)
+          }
+          break
+      }
+    }
+  }
+  return output.join('')
+}
+
+const toAssist = function (input) {
+  let output = ''
+  for (let i = 0; i < input.length; i++) {
+    let c = input[i]
+    if (Hiragana.indexOf(c) < 0) {
+      let j = Katakana.indexOf(c)
+      if (j > -1 && j < Hiragana.length) c = Hiragana[j]
+      if (j < Hiragana.length) output += c
+      // if (j >= Hiragana.length) continue
+    }
+  }
+  if (output === '') {
+    return input
+  } else {
+    return output
+  }
+}
 
 const Datastore = require('nedb')
 const db = new Datastore({
@@ -15,7 +69,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
   getInitialState: function () {
     return {
       dbSize: 0,
-      checkboxes: new Set(['JP', 'CN', 'EN', 'Tags', 'Notes']),
+      checkboxes: new Set(['JP', 'assist', 'CN', 'EN', 'Tags', 'Notes']),
       opt: 'contain',
       searchResult: [],
       popup: '',
@@ -63,6 +117,17 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       searchResult[pos]['updatedAt'] = new Date()
       this.setState({searchResult: searchResult})
       this.hidePopup()
+      if (field === 'jp') {
+        let assist = toAssist(item)
+        let assistIndex = searchResult[pos]['assist'].indexOf(assist)
+        if (assistIndex > -1) {
+          db.update({_id: id}, {$pull: {assist: assist}}, {}, (err) => {
+            if (err) window.alert(err)
+            searchResult[pos]['assist'].splice(assistIndex, 1)
+            this.setState({searchResult: searchResult})
+          })
+        }
+      }
     })
   },
 
@@ -90,6 +155,17 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       searchResult[pos][field].push(element.value)
       searchResult[pos]['updatedAt'] = new Date()
       this.setState({searchResult: searchResult})
+      if (field === 'jp') {
+        let assist = toAssist(element.value)
+        let assistIndex = searchResult[pos]['assist'].indexOf(assist)
+        if (assistIndex < 0) {
+          db.update({_id: id}, {$push: {assist: assist}}, {}, (err) => {
+            if (err) window.alert(err)
+            searchResult[pos]['assist'].push(assist)
+            this.setState({searchResult: searchResult})
+          })
+        }
+      }
       element.value = ''
       this.hidePopup()
     })
@@ -135,18 +211,31 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       this.setState({searchResult: []})
       return
     }
+    pattern = normalize(pattern)
+    let assist = toAssist(pattern)
     switch (opt) {
       case 'begin':
-        pattern = new RegExp(`^${pattern}`)
+        pattern = new RegExp(`^(${pattern}|${assist})`, 'i')
         break
       case 'end':
-        pattern = new RegExp(`${pattern}$`)
+        pattern = new RegExp(`(${pattern}|${assist})$`, 'i')
         break
       case 'contain':
+        pattern = new RegExp(`${pattern}|${assist}`, 'i')
+        break
       case 'RegExp':
-        pattern = new RegExp(pattern)
+        let iMatch = pattern.match(/\/(.*)\/i/)
+        let match = pattern.match(/\/(.*)\//)
+        if (iMatch) {
+          pattern = new RegExp(iMatch[1], 'i')
+        } else if (match) {
+          pattern = new RegExp(match[1])
+        } else {
+          pattern = new RegExp(pattern)
+        }
         break
     }
+    if (opt === 'exactly') fields.delete('assist')
     fields = Array.from(fields)
     fields = fields.map((field) => field.toLowerCase())
     let queries = []
@@ -232,11 +321,13 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
           let checkboxes = this.state.checkboxes
           if (checkboxes.has(field)) {
             checkboxes.delete(field)
+            if (field === 'JP') checkboxes.delete('assist')
             if (checkboxes.size === 0) {
-              checkboxes = new Set(['JP', 'CN', 'EN'])
+              checkboxes = new Set(['JP', 'assist', 'CN', 'EN'])
             }
           } else {
             checkboxes.add(field)
+            if (field === 'JP') checkboxes.add('assist')
           }
           this.setState({checkboxes: checkboxes})
         }} />
@@ -300,7 +391,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         </span>
       </legend>
 {
-  ['_id', 'createdAt', 'updatedAt'].map((field, key) => {
+  ['_id', 'createdAt', 'updatedAt', 'assist'].map((field, key) => {
     return <p key={key} className='moreInfo' style={{display:
       this.state.edit === entryId ? 'block' : 'none'}}>
       {`${field}: ${entry[field] instanceof Date
@@ -311,9 +402,15 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
 {
   ['jp', 'cn', 'en', 'tags'].map((field, key) => {
     let refId = `${field}-${entry._id}`
-    return <p key={key} className={field} style={{display:
-      entry[field].length > 0 || this.state.edit === entryId
-      ? 'block' : 'none'}}>
+    let style = {
+      display: entry[field].length > 0 || this.state.edit === entryId
+      ? 'block' : 'none'
+    }
+    let assistStyle = {
+      display: this.state.edit === entryId ? 'block' : 'none'
+    }
+    return <p key={key} className={field} style={field === 'assist'
+    ? assistStyle : style}>
       <strong>{field === 'tags' ? 'Tags' : field.toUpperCase()}</strong>:
       {
         entry[field].map(function (item, i) {
