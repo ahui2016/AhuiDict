@@ -37,6 +37,10 @@ fieldset .tags code {
   background-color: SeaGreen;
 }
 
+fieldset .recentTags code {
+  background-color: LightSeaGreen;
+}
+
 fieldset .popup, input[value="copy"], input[value="delete"], input[value="add"],
   input[value="update"] {
   margin-left:2.5px;

@@ -4,6 +4,8 @@ const imgNodejs = './app/images/'
 const imgChrome = './images/'
 const Fields = ['jp', 'assist', 'cn', 'en', 'tags', 'notes', 'img']
 const MAX = 30
+const RecentTagsId = 'C0swU8bcE6ZCBcQm'
+const RecentTagsMax = 10
 
 const abnormalChars = {
   'ｧ': 'ァ', 'ｱ': 'ア', 'ｨ': 'ィ', 'ｲ': 'イ', 'ｩ': 'ゥ', 'ｳ': 'ウ', 'ｪ': 'ェ', 'ｴ': 'エ', 'ｫ': 'ォ', 'ｵ': 'オ', 'ｶ': 'カ', 'ｶﾞ': 'ガ', 'ｷ': 'キ', 'ｷﾞ': 'ギ', 'ｸ': 'ク', 'ｸﾞ': 'グ', 'ｹ': 'ケ', 'ｹﾞ': 'ゲ', 'ｺ': 'コ', 'ｺﾞ': 'ゴ', 'ｻ': 'サ', 'ｻﾞ': 'ザ', 'ｼ': 'シ', 'ｼﾞ': 'ジ', 'ｽ': 'ス', 'ｽﾞ': 'ズ', 'ｾ': 'セ', 'ｾﾞ': 'ゼ', 'ｿ': 'ソ', 'ｿﾞ': 'ゾ', 'ﾀ': 'タ', 'ﾀﾞ': 'ダ', 'ﾁ': 'チ', 'ﾁﾞ': 'ヂ', 'ｯ': 'ッ', 'ﾂ': 'ツ', 'ﾂﾞ': 'ヅ', 'ﾃ': 'テ', 'ﾃﾞ': 'デ', 'ﾄ': 'ト', 'ﾄﾞ': 'ド', 'ﾅ': 'ナ', 'ﾆ': 'ニ', 'ﾇ': 'ヌ', 'ﾈ': 'ネ', 'ﾉ': 'ノ', 'ﾊ': 'ハ', 'ﾊﾞ': 'バ', 'ﾊﾟ': 'パ', 'ﾋ': 'ヒ', 'ﾋﾞ': 'ビ', 'ﾋﾟ': 'ピ', 'ﾌ': 'フ', 'ﾌﾞ': 'ブ', 'ﾌﾟ': 'プ', 'ﾍ': 'ヘ', 'ﾍﾞ': 'ベ', 'ﾍﾟ': 'ペ', 'ﾎ': 'ホ', 'ﾎﾞ': 'ボ', 'ﾎﾟ': 'ポ', 'ﾏ': 'マ', 'ﾐ': 'ミ', 'ﾑ': 'ム', 'ﾒ': 'メ', 'ﾓ': 'モ', 'ｬ': 'ャ', 'ﾔ': 'ヤ', 'ｭ': 'ュ', 'ﾕ': 'ユ', 'ｮ': 'ョ', 'ﾖ': 'ヨ', 'ﾗ': 'ラ', 'ﾘ': 'リ', 'ﾙ': 'ル', 'ﾚ': 'レ', 'ﾛ': 'ロ', 'ﾜ': 'ワ', 'ｦ': 'ヲ', 'ﾝ': 'ン', 'ｳﾞ': 'ヴ', '０': '0', '１': '1', '２': '2', '３': '3', '４': '4', '５': '5', '６': '6', '７': '7', '８': '8', '９': '9', 'ａ': 'a', 'ｂ': 'b', 'ｃ': 'c', 'ｄ': 'd', 'ｅ': 'e', 'ｆ': 'f', 'ｇ': 'g', 'ｈ': 'h', 'ｉ': 'i', 'ｊ': 'j', 'ｋ': 'k', 'ｌ': 'l', 'ｍ': 'm', 'ｎ': 'n', 'ｏ': 'o', 'ｐ': 'p', 'ｑ': 'q', 'ｒ': 'r', 'ｓ': 's', 'ｔ': 't', 'ｕ': 'u', 'ｖ': 'v', 'ｗ': 'w', 'ｘ': 'x', 'ｙ': 'y', 'ｚ': 'z', 'Ａ': 'A', 'Ｂ': 'B', 'Ｃ': 'C', 'Ｄ': 'D', 'Ｅ': 'E', 'Ｆ': 'F', 'Ｇ': 'G', 'Ｈ': 'H', 'Ｉ': 'I', 'Ｊ': 'J', 'Ｋ': 'K', 'Ｌ': 'L', 'Ｍ': 'M', 'Ｎ': 'N', 'Ｏ': 'O', 'Ｐ': 'P', 'Ｑ': 'Q', 'Ｒ': 'R', 'Ｓ': 'S', 'Ｔ': 'T', 'Ｕ': 'U', 'Ｖ': 'V', 'Ｗ': 'W', 'Ｘ': 'X', 'Ｙ': 'Y', 'Ｚ': 'Z', '･': '・', 'ｰ': 'ー', '｢': '「', '｣': '」', '､': '、', '／': '/'
@@ -76,6 +78,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
       edit: '',
       notes: '',
       showPic: new Set(),
+      recentTags: [],
 
       // When the Show button is clicked, add it in to state.showButtons,
       // If the show button is in state.Buttons, hide it,
@@ -91,8 +94,11 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
         if (err) window.alert(err)
         this.setState({dbSize: count, continueButton: 'block'})
       })
+      db.findOne({_id: RecentTagsId}, (err, doc) => {
+        if (err) window.alert(err)
+        this.setState({recentTags: doc['tags']})
+      })
     })
-    this.search.focus()
   },
 
   popup: function (id) {
@@ -147,40 +153,54 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
   },
 
   entryAdd: function (id, field, element, pos) {
-    let obj = {}
-    obj[field] = element.value
-    db.update({_id: id}, {$push: obj}, {}, (err) => {
-      if (err) window.alert(err)
-      let searchResult = this.state.searchResult
-      searchResult[pos][field].push(element.value)
-      searchResult[pos]['updatedAt'] = new Date()
-      this.setState({searchResult: searchResult})
-      if (field === 'jp') {
-        let assist = toAssist(element.value)
-        let assistIndex = searchResult[pos]['assist'].indexOf(assist)
-        if (assistIndex < 0) {
+    let item = normalize(element.value)
+    let searchResult = this.state.searchResult
+    if (searchResult[pos][field].indexOf(item) > -1) {
+      window.alert('Already exist!')
+    } else {
+      let obj = {}
+      obj[field] = item
+      db.update({_id: id}, {$push: obj}, {}, (err) => {
+        if (err) window.alert(err)
+        searchResult[pos][field].push(item)
+        searchResult[pos]['updatedAt'] = new Date()
+        this.setState({searchResult: searchResult})
+        if (field === 'jp') {
+          let assist = toAssist(item)
           db.update({_id: id}, {$push: {assist: assist}}, {}, (err) => {
             if (err) window.alert(err)
             searchResult[pos]['assist'].push(assist)
             this.setState({searchResult: searchResult})
           })
         }
-      }
-      element.value = ''
-      this.hidePopup()
-    })
+        element.value = ''
+        this.hidePopup()
+        let recentTags = this.state.recentTags
+        if (field === 'tags' && recentTags.indexOf(item) < 0) {
+          recentTags.unshift(item)
+          if (recentTags.length > RecentTagsMax) recentTags.pop()
+          db.update({_id: RecentTagsId}, {$set: {tags: recentTags}}, {}, () => {
+            this.setState({recentTags: recentTags})
+          })
+        }
+      })
+    }
   },
 
-  imgAdd: function (id, field, filename, pos) {
-    let obj = {}
-    obj[field] = filename
-    db.update({_id: id}, {$push: obj}, {}, (err) => {
-      if (err) window.alert(err)
-      let searchResult = this.state.searchResult
-      searchResult[pos][field].unshift(filename)
-      searchResult[pos]['updatedAt'] = new Date()
-      this.setState({searchResult: searchResult})
-    })
+  imgAdd: function (id, field, item, pos) {
+    let searchResult = this.state.searchResult
+    if (field === 'tags' && searchResult[pos][field].indexOf(item) > -1) {
+      window.alert('Already exist!')
+    } else {
+      let obj = {}
+      obj[field] = item
+      db.update({_id: id}, {$push: obj}, {}, (err) => {
+        if (err) window.alert(err)
+        searchResult[pos][field].unshift(item)
+        searchResult[pos]['updatedAt'] = new Date()
+        this.setState({searchResult: searchResult})
+      })
+    }
   },
 
   showPic: function (pic) {
@@ -247,11 +267,15 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     }
     db.find({$or: queries}).limit(MAX).exec((err, docs) => {
       if (err) window.alert(err)
-      for (let key in docs) {
-        let doc = docs[key]
-        for (let key in Fields) {
-          let field = Fields[key]
-          if (!doc[field]) doc[field] = []
+      for (let i = 0; i < docs.length; i++) {
+        let doc = docs[i]
+        if (doc['_id'] === RecentTagsId) {
+          docs.splice(i, 1)
+        } else {
+          for (let key in Fields) {
+            let field = Fields[key]
+            if (!doc[field]) doc[field] = []
+          }
         }
       }
       this.setState({searchResult: docs})
@@ -448,6 +472,25 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
     </p>
   })
 }
+
+      <p className='recentTags' style={{display: this.state.edit === entryId ? 'block' : 'none'}}>
+      Recently used tags:
+      {
+        this.state.recentTags.map((item, i) => {
+          let popupId = `${entryId}-recentTags-${i}`
+          return <span key={i}>
+            <code onClick={this.popup.bind(this, popupId)}>{item}</code>
+            <span className='popup' style={{display:
+              this.state.popup === popupId ? 'inline' : 'none'}}>
+              <input type='button' value='add' onClick={() => {
+                this.imgAdd(entry._id, 'tags', item, pos)
+              }} />
+            </span>
+          </span>
+        })
+      }
+      </p>
+
       <div style={{display:
         entry.notes.length > 0 || this.state.edit === entryId
         ? 'block' : 'none'}}>
@@ -526,7 +569,7 @@ var AhuiDict = React.createClass({ // eslint-disable-line no-undef
 Acceptable file types: .jpg .png .gif etc.`)
             } else {
               let suffix = `.${file.type.match(/\/(.+)/)[1]}`
-              filename = `${entry._id}${suffix}`
+              filename = `${entry._id}-${imgCount + 1}-${suffix}`
             }
             let dest = `${imgNodejs}${filename}`
             fs.copy(src, dest, (err) => {
